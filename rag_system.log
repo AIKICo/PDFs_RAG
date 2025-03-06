@@ -54,3 +54,99 @@
 2025-03-06 07:13:23,032 - RAGSystem - INFO - 606 چانک از /home/mohammad/Downloads/pdfs/1835882757.pdf استخراج شد.
 2025-03-06 07:13:23,035 - RAGSystem - INFO - ساخت پایگاه داده برداری با 1225 چانک
 2025-03-06 07:13:23,050 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:15:58,944 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf: name 'Document' is not defined
+2025-03-06 07:16:01,636 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf: name 'Document' is not defined
+2025-03-06 07:16:16,044 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf: name 'Document' is not defined
+2025-03-06 07:16:18,640 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf: name 'Document' is not defined
+2025-03-06 07:16:46,569 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:16:46,570 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 07:16:46,572 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:16:46,572 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:16:51,824 - RAGSystem - INFO - 619 چانک از /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf استخراج شد.
+2025-03-06 07:16:53,257 - RAGSystem - INFO - 606 چانک از /home/mohammad/Downloads/pdfs/1835882757.pdf استخراج شد.
+2025-03-06 07:16:53,259 - RAGSystem - INFO - ساخت پایگاه داده برداری با 1225 چانک
+2025-03-06 07:16:53,270 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:21:43,979 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:21:44,153 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:21:44,153 - RAGSystem - INFO - تعداد 1 فایل PDF یافت شد
+2025-03-06 07:21:44,155 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/طرح اولیه.pdf
+2025-03-06 07:21:44,627 - RAGSystem - INFO - 17 چانک از /home/mohammad/Downloads/pdfs/طرح اولیه.pdf استخراج شد.
+2025-03-06 07:21:44,630 - RAGSystem - INFO - ساخت پایگاه داده برداری با 17 چانک
+2025-03-06 07:22:51,315 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:22:51,383 - RAGSystem - ERROR - خطا در ساخت پایگاه داده: An instance of Chroma already exists for db with different settings
+2025-03-06 07:26:45,852 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:26:46,017 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:26:46,018 - RAGSystem - INFO - تعداد 1 فایل PDF یافت شد
+2025-03-06 07:26:46,020 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/طرح اولیه.pdf
+2025-03-06 07:26:46,478 - RAGSystem - INFO - 17 چانک از /home/mohammad/Downloads/pdfs/طرح اولیه.pdf استخراج شد.
+2025-03-06 07:26:46,480 - RAGSystem - INFO - ساخت پایگاه داده برداری با 17 چانک
+2025-03-06 07:27:53,103 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:27:53,178 - RAGSystem - ERROR - خطا در ساخت پایگاه داده: An instance of Chroma already exists for db with different settings
+2025-03-06 07:30:10,096 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:30:10,261 - RAGSystem - INFO - Starting to process PDF files in /home/mohammad/Downloads/pdfs/
+2025-03-06 07:30:10,262 - RAGSystem - INFO - Found 1 PDF files
+2025-03-06 07:30:10,263 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/طرح اولیه.pdf
+2025-03-06 07:30:10,745 - RAGSystem - INFO - 17 چانک از /home/mohammad/Downloads/pdfs/طرح اولیه.pdf استخراج شد.
+2025-03-06 07:30:10,747 - RAGSystem - INFO - Creating vector database with 17 chunks
+2025-03-06 07:30:10,748 - RAGSystem - ERROR - Error creating database: An instance of Chroma already exists for db with different settings
+2025-03-06 07:30:30,883 - RAGSystem - INFO - Starting to process PDF files in /home/mohammad/Downloads/pdfs/
+2025-03-06 07:30:30,883 - RAGSystem - INFO - Found 1 PDF files
+2025-03-06 07:30:30,885 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/طرح اولیه.pdf
+2025-03-06 07:30:31,332 - RAGSystem - INFO - 17 چانک از /home/mohammad/Downloads/pdfs/طرح اولیه.pdf استخراج شد.
+2025-03-06 07:30:31,334 - RAGSystem - INFO - Creating vector database with 17 chunks
+2025-03-06 07:31:38,319 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:31:38,383 - RAGSystem - INFO - Batch 1/1 added
+2025-03-06 07:31:38,384 - RAGSystem - INFO - Database successfully saved in db
+2025-03-06 07:33:00,964 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:33:16,774 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:33:26,159 - RAGSystem - INFO - پاسخ به پرسش: در مورد سین برام بگو
+2025-03-06 07:33:26,480 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:33:27,345 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:33:42,484 - RAGSystem - INFO - پاسخ به پرسش: در مورد پلتفرم سین برام بگو
+2025-03-06 07:33:42,931 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:33:43,934 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:34:20,961 - RAGSystem - INFO - پاسخ به پرسش: پلتفرم سین همان سین هست
+2025-03-06 07:34:21,346 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:34:22,189 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:35:35,182 - RAGSystem - INFO - پاسخ به پرسش: در مورد سامانه یادگیری نوین بگو
+2025-03-06 07:35:35,710 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:35:36,885 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:37:16,282 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:37:16,459 - RAGSystem - INFO - پاسخ به پرسش: در مورد سین بگو
+2025-03-06 07:37:16,720 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:37:17,599 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:37:31,414 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:37:31,581 - RAGSystem - INFO - پاسخ به پرسش: در مورد پلتفرم  سین بگو
+2025-03-06 07:37:32,016 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:37:33,020 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:46:49,967 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:46:50,156 - RAGSystem - INFO - پاسخ به پرسش: در مورد سین بگو
+2025-03-06 07:46:55,386 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:46:56,344 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:47:08,771 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:47:08,977 - RAGSystem - INFO - پاسخ به پرسش: در مورد سین بگو
+2025-03-06 07:47:09,283 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:47:10,185 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:49:05,561 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:49:05,747 - RAGSystem - INFO - پاسخ به پرسش: در مورد سامانه یادگیری نوین بگو
+2025-03-06 07:49:06,356 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:49:07,385 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"
+2025-03-06 07:49:22,021 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:49:22,197 - RAGSystem - INFO - Starting to process PDF files in /home/mohammad/Downloads/pdfs/
+2025-03-06 07:49:22,199 - RAGSystem - INFO - Found 1 PDF files
+2025-03-06 07:49:22,201 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/طرح اولیه.pdf
+2025-03-06 07:49:22,724 - RAGSystem - INFO - 17 چانک از /home/mohammad/Downloads/pdfs/طرح اولیه.pdf استخراج شد.
+2025-03-06 07:49:22,726 - RAGSystem - INFO - Creating vector database with 17 chunks
+2025-03-06 07:49:22,726 - RAGSystem - ERROR - Error creating database: An instance of Chroma already exists for db with different settings
+2025-03-06 07:49:34,520 - RAGSystem - INFO - Starting to process PDF files in /home/mohammad/Downloads/pdfs/
+2025-03-06 07:49:34,520 - RAGSystem - INFO - Found 1 PDF files
+2025-03-06 07:49:34,522 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/طرح اولیه.pdf
+2025-03-06 07:49:35,046 - RAGSystem - INFO - 17 چانک از /home/mohammad/Downloads/pdfs/طرح اولیه.pdf استخراج شد.
+2025-03-06 07:49:35,047 - RAGSystem - INFO - Creating vector database with 17 chunks
+2025-03-06 07:50:42,488 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:50:42,557 - RAGSystem - INFO - Batch 1/1 added
+2025-03-06 07:50:42,559 - RAGSystem - INFO - Database successfully saved in db
+2025-03-06 07:54:08,557 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:54:08,758 - RAGSystem - INFO - پاسخ به پرسش: در مورد پلتفرم  سین بگو
+2025-03-06 07:54:09,290 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/embed "HTTP/1.1 200 OK"
+2025-03-06 07:54:10,307 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/generate "HTTP/1.1 200 OK"

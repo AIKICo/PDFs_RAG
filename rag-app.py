@@ -1,407 +1,302 @@
 import argparse
-import concurrent.futures
-import logging
+import hashlib
+import json
 import os
-from typing import Dict, Any
-import unicodedata
+import sqlite3
+from typing import List, Dict
 
-# برای ساخت زنجیره پرسش و پاسخ
+# For PDF processing
+import fitz  # PyMuPDF
+# Persian language support
+import hazm
 from langchain.chains import RetrievalQA
-# برای تقسیم متن ها
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-# استفاده از Chroma به عنوان پایگاه داده برداری
-from langchain_chroma import Chroma
-# برای کار با PDF ها
-from langchain_community.document_loaders import PyPDFLoader
-# برای ساخت embedding
-from langchain_ollama import OllamaEmbeddings  # برای LLM - استفاده از پکیج جدید
-from langchain_ollama import OllamaLLM
-# برای بخش interactive CLI
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.progress import Progress
-from chromadb.config import Settings
+from langchain_chroma import Chroma  # Updated import for Chroma
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_core.documents import Document
+from langchain_ollama import OllamaEmbeddings  # Updated import for OllamaEmbeddings
+from langchain_ollama import OllamaLLM  # Updated import for Ollama
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from tqdm import tqdm
+
+# Define the database path
+DB_PATH = "pdf_database.db"
+VECTOR_STORE_PATH = "chroma_db"
 
 
-class RAGSystem:
-    def __init__(self,
-                 model_name: str = "llama2",
-                 persist_directory: str = "db",
-                 chunk_size: int = 1000,
-                 chunk_overlap: int = 200,  # افزایش همپوشانی برای بهبود پشتیبانی از فارسی
-                 max_workers: int = 4):  # تعداد worker برای پردازش موازی
+class PDFProcessor:
+    def __init__(self, model_name: str = "llama3", embeddings_model: str = "nomic-embed-text"):
         """
-        مقداردهی اولیه سیستم RAG
+        Initialize the PDF processor with specified models.
 
         Args:
-            model_name: نام مدل Ollama برای استفاده
-            persist_directory: مسیر ذخیره‌سازی پایگاه داده
-            chunk_size: اندازه هر چانک متن
-            chunk_overlap: میزان همپوشانی چانک‌ها
-            max_workers: تعداد پردازنده‌های همزمان برای پردازش PDF
+            model_name: Ollama model name for generating responses
+            embeddings_model: Ollama model name for embeddings
         """
         self.model_name = model_name
-        self.persist_directory = persist_directory
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.max_workers = max_workers
-        self.console = Console()
+        self.embeddings_model = embeddings_model
+        self.db_conn = self._init_database()
+        self.ollama_embeddings = OllamaEmbeddings(model=embeddings_model)
 
-        # تنظیم logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler("rag_system.log"),
-                logging.StreamHandler()
-            ]
-        )
-        self.logger = logging.getLogger("RAGSystem")
+        # Initialize the Persian normalizer and tokenizer
+        self.normalizer = hazm.Normalizer()
 
-        # ساخت embedding با استفاده از Ollama
-        try:
-            self.embeddings = OllamaEmbeddings(model=model_name)
-        except Exception as e:
-            self.logger.error(f"خطا در راه‌اندازی مدل embedding: {str(e)}")
-            self.console.print(f"[red]خطا در راه‌اندازی مدل embedding: {str(e)}[/red]")
-            raise
-
-        # بررسی وجود پایگاه داده
-        if os.path.exists(persist_directory):
-            self.console.print(f"[green]پایگاه داده در {persist_directory} یافت شد. بارگذاری...[/green]")
-            try:
-                self.db = Chroma(persist_directory=persist_directory, embedding_function=self.embeddings)
-            except Exception as e:
-                self.logger.error(f"خطا در بارگذاری پایگاه داده: {str(e)}")
-                self.console.print(f"[red]خطا در بارگذاری پایگاه داده: {str(e)}[/red]")
-                self.db = None
-        else:
-            self.console.print(f"[yellow]پایگاه داده‌ای یافت نشد. لطفاً از دستور 'index' استفاده کنید.[/yellow]")
-            self.db = None
-
-        # تنظیم LLM - استفاده از کلاس جدید OllamaLLM
-        try:
-            self.llm = OllamaLLM(
-                model=model_name,
-                temperature=0.1,  # کاهش دمای مدل برای پاسخ‌های دقیق‌تر
-                num_predict=512,  # تعداد توکن‌های خروجی
-            )
-        except Exception as e:
-            self.logger.error(f"خطا در راه‌اندازی مدل LLM: {str(e)}")
-            self.console.print(f"[red]خطا در راه‌اندازی مدل LLM: {str(e)}[/red]")
-            raise
-
-        # تنظیم text splitter با تنظیمات بهتر برای متون فارسی
+        # Persian-aware text splitter settings
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            length_function=len,
-            separators=["\n\n", "\n", ".", "!", "?", "؟", "!", "،", ";", ":", " ", ""],  # افزودن جداکننده‌های فارسی
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n", ".", "!", "?", "،", "؛", " ", ""],
+            keep_separator=True,
         )
 
-        # ساخت زنجیره پرسش و پاسخ اگر پایگاه داده موجود باشد
-        if self.db is not None:
-            self.qa_chain = self._create_qa_chain()
-        else:
-            self.qa_chain = None
+        # Create/load vector store
+        self._init_vector_store()
 
-    def _create_qa_chain(self) -> RetrievalQA:
-        """ساخت زنجیره پرسش و پاسخ"""
-        try:
-            # افزایش تعداد نتایج بازیابی شده برای پوشش بهتر محتوا
-            retriever = self.db.as_retriever(search_kwargs={"k": 8})
-            return RetrievalQA.from_chain_type(
-                llm=self.llm,
-                chain_type="stuff",
-                retriever=retriever,
-                return_source_documents=True,
-                verbose=False
+    @staticmethod
+    def _init_database() -> sqlite3.Connection:
+        """Initialize SQLite database for tracking processed files."""
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Create tables if they don't exist
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS processed_files (
+            file_hash TEXT PRIMARY KEY,
+            file_path TEXT,
+            file_name TEXT,
+            page_count INTEGER,
+            processed_at TEXT,
+            metadata TEXT
+        )
+        ''')
+
+        conn.commit()
+        return conn
+
+    def _init_vector_store(self):
+        """Initialize or load the vector store for document embeddings."""
+        if os.path.exists(VECTOR_STORE_PATH):
+            self.vector_store = Chroma(
+                persist_directory=VECTOR_STORE_PATH,
+                embedding_function=self.ollama_embeddings
             )
-        except Exception as e:
-            self.logger.error(f"خطا در ساخت زنجیره پرسش و پاسخ: {str(e)}")
-            self.console.print(f"[red]خطا در ساخت زنجیره پرسش و پاسخ: {str(e)}[/red]")
-            raise
+        else:
+            # Create an empty vector store if it doesn't exist
+            self.vector_store = Chroma(
+                persist_directory=VECTOR_STORE_PATH,
+                embedding_function=self.ollama_embeddings
+            )
 
-    def _clean_text(self, text: str) -> str:
-        """
-        Clean text by removing invalid Unicode characters and normalizing
+    @staticmethod
+    def _calculate_file_hash(file_path: str) -> str:
+        """Calculate SHA-256 hash of a file to uniquely identify it."""
+        sha256_hash = hashlib.sha256()
 
-        Args:
-            text: Input text to clean
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
 
-        Returns:
-            Cleaned text string
-        """
-        # Remove surrogate characters
-        text = ''.join(char for char in text if not '\ud800' <= char <= '\udfff')
+        return sha256_hash.hexdigest()
 
-        # Normalize Unicode characters
-        text = unicodedata.normalize('NFKD', text)
+    def _is_file_processed(self, file_hash: str) -> bool:
+        """Check if a file has already been processed based on its hash."""
+        cursor = self.db_conn.cursor()
+        cursor.execute("SELECT file_hash FROM processed_files WHERE file_hash = ?", (file_hash,))
+        result = cursor.fetchone()
+        return result is not None
 
-        # Replace any remaining problematic characters with space
-        text = ''.join(char if ord(char) < 0x10000 else ' ' for char in text)
-
+    def _preprocess_text(self, text: str) -> str:
+        """Preprocess text with Persian language support."""
+        # Normalize Persian text
+        text = self.normalizer.normalize(text)
         return text
 
-    def _process_pdf_file(self, pdf_file: str) -> list:
-        """
-        Process a PDF file and convert it to chunks with text cleaning
-        """
-        try:
-            self.logger.info(f"شروع پردازش {pdf_file}")
-            loader = PyPDFLoader(pdf_file, extract_images=False)
-            documents = loader.load()
+    def _extract_text_from_pdf(self, file_path: str) -> List[Document]:
+        """Extract text from PDF file with preprocessing for Persian text."""
+        loader = PyMuPDFLoader(file_path)
+        documents = loader.load()
 
-            if not documents:
-                self.logger.warning(f"سند {pdf_file} خالی است یا قابل پردازش نیست.")
-                return []
+        # Preprocess each document's page content
+        for doc in documents:
+            doc.page_content = self._preprocess_text(doc.page_content)
 
-            # Clean text in documents
-            for doc in documents:
-                doc.page_content = self._clean_text(doc.page_content)
+            # Add the file path to metadata
+            doc.metadata["source_file"] = file_path
 
-            chunks = self.text_splitter.split_documents(documents)
-            self.logger.info(f"{len(chunks)} چانک از {pdf_file} استخراج شد.")
-            return chunks
+        return documents
 
-        except Exception as e:
-            self.logger.error(f"خطا در پردازش {pdf_file}: {str(e)}")
-            return []
+    def process_pdfs(self, pdf_paths: List[str]) -> None:
+        """Process a list of PDF files and add them to the database if not already processed."""
+        new_documents = []
+        processed_count = 0
+        skipped_count = 0
 
-    def index_pdfs(self, pdf_directory: str, batch_size: int = 1000) -> None:
-        """
-        ایندکس کردن فایل‌های PDF داخل دایرکتوری مشخص شده
+        print("Starting PDF processing...")
 
-        Args:
-            pdf_directory: مسیر دایرکتوری حاوی فایل‌های PDF
-            batch_size: تعداد چانک‌ها در هر batch برای مدیریت بهتر حافظه
-        """
-        self.console.print(f"[blue]شروع پردازش فایل‌های PDF در {pdf_directory}...[/blue]")
-        self.logger.info(f"شروع پردازش فایل‌های PDF در {pdf_directory}")
-
-        # بررسی وجود دایرکتوری
-        if not os.path.exists(pdf_directory):
-            self.console.print(f"[red]دایرکتوری {pdf_directory} یافت نشد![/red]")
-            self.logger.error(f"دایرکتوری {pdf_directory} یافت نشد")
-            return
-
-        # جمع‌آوری همه فایل‌های PDF
-        pdf_files = [os.path.join(pdf_directory, f) for f in os.listdir(pdf_directory)
-                     if f.lower().endswith('.pdf')]
-
-        if not pdf_files:
-            self.console.print(f"[red]هیچ فایل PDF در {pdf_directory} یافت نشد![/red]")
-            self.logger.error(f"هیچ فایل PDF در {pdf_directory} یافت نشد")
-            return
-
-        self.console.print(f"[blue]تعداد {len(pdf_files)} فایل PDF یافت شد.[/blue]")
-        self.logger.info(f"تعداد {len(pdf_files)} فایل PDF یافت شد")
-
-        # پردازش موازی فایل‌های PDF
-        all_chunks = []
-
-        with Progress() as progress:
-            task = progress.add_task("[cyan]پردازش PDF ها...", total=len(pdf_files))
-
-            # استفاده از ThreadPoolExecutor برای پردازش موازی
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                future_to_pdf = {executor.submit(self._process_pdf_file, pdf_file): pdf_file for pdf_file in pdf_files}
-
-                for future in concurrent.futures.as_completed(future_to_pdf):
-                    pdf_file = future_to_pdf[future]
-                    try:
-                        chunks = future.result()
-                        all_chunks.extend(chunks)
-                        progress.update(task, advance=1)
-                    except Exception as e:
-                        self.logger.error(f"خطا در پردازش {pdf_file}: {str(e)}")
-
-        # ساخت و ذخیره پایگاه داده برداری
-        if all_chunks:
-            self.console.print(f"[blue]ساخت پایگاه داده برداری با {len(all_chunks)} چانک...[/blue]")
-            self.logger.info(f"ساخت پایگاه داده برداری با {len(all_chunks)} چانک")
-
-            # پردازش batch-by-batch برای مدیریت بهتر حافظه
-            try:
-                # اگر پایگاه داده موجود نباشد، آن را ایجاد می‌کنیم
-                if not os.path.exists(self.persist_directory):
-                    # ابتدا با یک batch کوچک پایگاه داده را ایجاد می‌کنیم
-                    first_batch = all_chunks[:min(batch_size, len(all_chunks))]
-                    self.console.print(f"[blue]ایجاد پایگاه داده اولیه با {len(first_batch)} چانک...[/blue]")
-
-                    self.db = Chroma.from_documents(
-                        documents=first_batch,
-                        embedding=self.embeddings,
-                        persist_directory=self.persist_directory,
-                    )
-                    self.db = Chroma(
-                        persist_directory=self.persist_directory,
-                        embedding_function=self.embeddings,
-                        collection_name="documents",
-                        client_settings=Settings(
-                            persist_directory=self.persist_directory,
-                            is_persistent=True,
-                            anonymized_telemetry=False
-                        )
-                    )
-
-                    # اگر چانک بیشتری وجود دارد، آنها را به صورت batch اضافه می‌کنیم
-                    remaining_chunks = all_chunks[min(batch_size, len(all_chunks)):]
-                else:
-                    # اگر پایگاه داده موجود باشد، همه چانک‌ها را batch-by-batch اضافه می‌کنیم
-                    self.db = Chroma(persist_directory=self.persist_directory, embedding_function=self.embeddings)
-                    remaining_chunks = all_chunks
-
-                # افزودن چانک‌های باقیمانده به صورت batch
-                with Progress() as progress:
-                    # محاسبه تعداد batch‌ها
-                    total_batches = (len(remaining_chunks) + batch_size - 1) // batch_size
-                    task = progress.add_task("[green]افزودن به پایگاه داده...", total=total_batches)
-
-                    for i in range(0, len(remaining_chunks), batch_size):
-                        batch = remaining_chunks[i:i + batch_size]
-                        self.db.add_documents(documents=batch)
-                        self.db = Chroma(
-                            persist_directory=self.persist_directory,
-                            embedding_function=self.embeddings,
-                            collection_name="documents",
-                            client_settings=Settings(
-                                persist_directory=self.persist_directory,
-                                is_persistent=True,
-                                anonymized_telemetry=False
-                            )
-                        )
-                        progress.update(task, advance=1)
-                        self.logger.info(f"Batch {i // batch_size + 1}/{total_batches} اضافه شد")
-
-                self.console.print(f"[green]پایگاه داده با موفقیت در {self.persist_directory} ذخیره شد.[/green]")
-                self.logger.info(f"پایگاه داده با موفقیت در {self.persist_directory} ذخیره شد")
-
-                # بروزرسانی زنجیره پرسش و پاسخ
-                self.qa_chain = self._create_qa_chain()
-
-            except Exception as e:
-                self.logger.error(f"خطا در ساخت پایگاه داده: {str(e)}")
-                self.console.print(f"[red]خطا در ساخت پایگاه داده: {str(e)}[/red]")
-        else:
-            self.console.print("[red]هیچ چانکی برای ایندکس کردن یافت نشد![/red]")
-            self.logger.error("هیچ چانکی برای ایندکس کردن یافت نشد")
-
-    def ask(self, query: str) -> Dict[str, Any]:
-        """
-        پاسخ به پرسش با استفاده از پایگاه داده
-
-        Args:
-            query: پرسش کاربر
-
-        Returns:
-            Dict: نتیجه پرسش و پاسخ
-        """
-        if self.db is None or self.qa_chain is None:
-            self.console.print("[red]پایگاه داده هنوز ایجاد نشده است. لطفاً ابتدا از دستور 'index' استفاده کنید.[/red]")
-            return {"result": "پایگاه داده یافت نشد"}
-
-        self.console.print(f"[blue]پاسخ به پرسش: {query}[/blue]")
-        self.logger.info(f"پاسخ به پرسش: {query}")
-
-        try:
-            result = self.qa_chain({"query": query})
-            return result
-        except Exception as e:
-            self.logger.error(f"خطا در پاسخ به پرسش: {str(e)}")
-            self.console.print(f"[red]خطا در پاسخ به پرسش: {str(e)}[/red]")
-            return {"result": f"خطا: {str(e)}"}
-
-    def interactive(self) -> None:
-        """اجرای حالت تعاملی برای پرسش و پاسخ"""
-        if self.db is None or self.qa_chain is None:
-            self.console.print("[red]پایگاه داده هنوز ایجاد نشده است. لطفاً ابتدا از دستور 'index' استفاده کنید.[/red]")
-            return
-
-        self.console.print("[green]حالت تعاملی. برای خروج 'exit' یا 'quit' یا 'خروج' را وارد کنید.[/green]")
-
-        while True:
-            query = input("\nپرسش خود را وارد کنید: ")
-
-            if query.lower() in ['exit', 'quit', 'خروج']:
-                break
-
-            if not query.strip():
+        for pdf_path in tqdm(pdf_paths, desc="Processing PDF files"):
+            if not os.path.exists(pdf_path):
+                print(f"File not found: {pdf_path}")
                 continue
 
-            result = self.ask(query)
+            file_hash = self._calculate_file_hash(pdf_path)
 
-            # نمایش پاسخ
-            self.console.print("\n[bold blue]پاسخ:[/bold blue]")
-            self.console.print(Markdown(result['result']))
+            if self._is_file_processed(file_hash):
+                print(f"Skipping already processed file: {os.path.basename(pdf_path)}")
+                skipped_count += 1
+                continue
 
-            # نمایش منابع
-            self.console.print("\n[bold green]منابع:[/bold green]")
-            for i, doc in enumerate(result['source_documents']):
-                self.console.print(
-                    f"[bold cyan]منبع {i + 1}:[/bold cyan] {doc.metadata.get('source', 'نامشخص')}, صفحه {doc.metadata.get('page', 'نامشخص')}")
-                self.console.print(f"[dim]{doc.page_content[:150]}...[/dim]\n")
+            try:
+                # Extract metadata
+                pdf_document = fitz.open(pdf_path)
+                page_count = len(pdf_document)
+
+                # Extract text from PDF
+                documents = self._extract_text_from_pdf(pdf_path)
+
+                # Split documents into chunks
+                for doc in tqdm(documents, desc=f"Splitting {os.path.basename(pdf_path)}", leave=False):
+                    chunks = self.text_splitter.split_documents([doc])
+                    new_documents.extend(chunks)
+
+                # Record the processed file in the database
+                cursor = self.db_conn.cursor()
+                cursor.execute(
+                    "INSERT INTO processed_files VALUES (?, ?, ?, ?, datetime('now'), ?)",
+                    (
+                        file_hash,
+                        pdf_path,
+                        os.path.basename(pdf_path),
+                        page_count,
+                        json.dumps({"language": "mixed", "contains_persian": True})
+                    )
+                )
+                self.db_conn.commit()
+
+                processed_count += 1
+
+            except Exception as e:
+                print(f"Error processing {pdf_path}: {e}")
+
+        # Add new documents to vector store if there are any
+        if new_documents:
+            print(f"Adding {len(new_documents)} new document chunks to vector store...")
+            self.vector_store.add_documents(new_documents)
+            print("Vector store updated and persisted.")
+
+        print(f"Processing complete. {processed_count} files processed, {skipped_count} files skipped.")
+
+    def query(self, question: str, top_k: int = 4) -> str:
+        """Query the system with a question and get a response."""
+        # Initialize Ollama for response generation
+        llm = OllamaLLM(model=self.model_name)
+
+        # Create a retrieval QA chain
+        retriever = self.vector_store.as_retriever(search_kwargs={"k": top_k})
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            chain_type="stuff",
+            retriever=retriever,
+            return_source_documents=True
+        )
+
+        # Execute the query
+        print("Searching for relevant information...")
+        # result = qa_chain({"query": question})
+        result = qa_chain.invoke({"query": question})
+
+        answer = result["result"]
+        sources = result["source_documents"]
+
+        # Format sources for display
+        source_texts = []
+        for i, doc in enumerate(sources, 1):
+            source_file = doc.metadata.get("source_file", "Unknown source")
+            page_num = doc.metadata.get("page", "Unknown page")
+            source_texts.append(f"Source {i}: {os.path.basename(source_file)}, Page {page_num}")
+
+        # Format and return the response
+        formatted_answer = f"""Answer: {answer}\n\nReferences:\n"""
+        formatted_answer += "\n".join(source_texts)
+
+        return formatted_answer
+
+    def list_processed_files(self) -> List[Dict]:
+        """List all processed files in the database."""
+        cursor = self.db_conn.cursor()
+        cursor.execute("SELECT file_path, file_name, page_count, processed_at FROM processed_files")
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            result.append({
+                "file_path": row[0],
+                "file_name": row[1],
+                "page_count": row[2],
+                "processed_at": row[3]
+            })
+
+        return result
+
+    def close(self):
+        """Close database connection."""
+        if self.db_conn:
+            self.db_conn.close()
 
 
 def main():
-    """تابع اصلی برنامه"""
-    parser = argparse.ArgumentParser(description="سیستم RAG برای فایل‌های PDF با استفاده از Ollama")
-
-    subparsers = parser.add_subparsers(dest="command", help="دستور مورد نظر")
-
-    # دستور index
-    index_parser = subparsers.add_parser("index", help="ایندکس کردن فایل‌های PDF")
-    index_parser.add_argument("pdf_dir", help="مسیر دایرکتوری حاوی فایل‌های PDF")
-    index_parser.add_argument("--model", default="llama2", help="نام مدل Ollama (پیش‌فرض: llama2)")
-    index_parser.add_argument("--db-dir", default="db", help="مسیر ذخیره‌سازی پایگاه داده (پیش‌فرض: db)")
-    index_parser.add_argument("--chunk-size", type=int, default=1000, help="اندازه چانک (پیش‌فرض: 1000)")
-    index_parser.add_argument("--chunk-overlap", type=int, default=200, help="همپوشانی چانک (پیش‌فرض: 200)")
-    index_parser.add_argument("--batch-size", type=int, default=1000, help="تعداد چانک در هر batch (پیش‌فرض: 1000)")
-    index_parser.add_argument("--workers", type=int, default=4, help="تعداد پردازنده‌های همزمان (پیش‌فرض: 4)")
-
-    # دستور ask
-    ask_parser = subparsers.add_parser("ask", help="پرسش از سیستم")
-    ask_parser.add_argument("query", help="پرسش مورد نظر")
-    ask_parser.add_argument("--model", default="llama2", help="نام مدل Ollama (پیش‌فرض: llama2)")
-    ask_parser.add_argument("--db-dir", default="db", help="مسیر پایگاه داده (پیش‌فرض: db)")
-
-    # دستور interactive
-    interactive_parser = subparsers.add_parser("interactive", help="حالت تعاملی برای پرسش و پاسخ")
-    interactive_parser.add_argument("--model", default="llama2", help="نام مدل Ollama (پیش‌فرض: llama2)")
-    interactive_parser.add_argument("--db-dir", default="db", help="مسیر پایگاه داده (پیش‌فرض: db)")
+    parser = argparse.ArgumentParser(description="PDF RAG System with Persian language support")
+    parser.add_argument("--process", action="store_true", help="Process PDF files")
+    parser.add_argument("--query", type=str, help="Query the system")
+    parser.add_argument("--list", action="store_true", help="List processed files")
+    parser.add_argument("--pdf-dir", type=str, help="Directory containing PDF files to process")
+    parser.add_argument("--pdf-files", nargs="+", help="Specific PDF files to process")
+    parser.add_argument("--model", type=str, default="llama3.1", help="Ollama model for responses")
+    parser.add_argument("--embeddings", type=str, default="nomic-embed-text", help="Ollama model for embeddings")
 
     args = parser.parse_args()
 
-    if args.command == "index":
-        rag_system = RAGSystem(
-            model_name=args.model,
-            persist_directory=args.db_dir,
-            chunk_size=args.chunk_size,
-            chunk_overlap=args.chunk_overlap,
-            max_workers=args.workers
-        )
-        rag_system.index_pdfs(args.pdf_dir, batch_size=args.batch_size)
+    processor = PDFProcessor(model_name=args.model, embeddings_model=args.embeddings)
 
-    elif args.command == "ask":
-        rag_system = RAGSystem(model_name=args.model, persist_directory=args.db_dir)
-        result = rag_system.ask(args.query)
+    try:
+        if args.process:
+            pdf_files = []
 
-        console = Console()
-        console.print("\n[bold blue]پاسخ:[/bold blue]")
-        console.print(Markdown(result['result']))
+            # Process specific PDF files
+            if args.pdf_files:
+                pdf_files.extend(args.pdf_files)
 
-        console.print("\n[bold green]منابع:[/bold green]")
-        for i, doc in enumerate(result['source_documents']):
-            console.print(
-                f"[bold cyan]منبع {i + 1}:[/bold cyan] {doc.metadata.get('source', 'نامشخص')}, صفحه {doc.metadata.get('page', 'نامشخص')}")
-            console.print(f"[dim]{doc.page_content[:150]}...[/dim]\n")
+            # Process all PDFs in a directory
+            if args.pdf_dir:
+                if os.path.isdir(args.pdf_dir):
+                    for file in os.listdir(args.pdf_dir):
+                        if file.lower().endswith(".pdf"):
+                            pdf_files.append(os.path.join(args.pdf_dir, file))
+                else:
+                    print(f"Directory not found: {args.pdf_dir}")
 
-    elif args.command == "interactive":
-        rag_system = RAGSystem(model_name=args.model, persist_directory=args.db_dir)
-        rag_system.interactive()
+            if pdf_files:
+                processor.process_pdfs(pdf_files)
+            else:
+                print("No PDF files specified for processing.")
 
-    else:
-        parser.print_help()
+        elif args.query:
+            response = processor.query(args.query)
+            print("\n" + "=" * 50)
+            print(response)
+            print("=" * 50)
+
+        elif args.list:
+            files = processor.list_processed_files()
+            print("\nProcessed Files:")
+            print("=" * 80)
+            for i, file in enumerate(files, 1):
+                print(f"{i}. {file['file_name']} ({file['page_count']} pages) - Processed at: {file['processed_at']}")
+            print("=" * 80)
+
+        else:
+            print("Please specify an action: --process, --query, or --list")
+
+    finally:
+        processor.close()
 
 
 if __name__ == "__main__":
