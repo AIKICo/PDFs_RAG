@@ -1,0 +1,56 @@
+2025-03-06 06:48:07,611 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 06:48:07,611 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 06:48:07,613 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 06:48:07,613 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 06:48:13,010 - RAGSystem - INFO - 619 چانک از /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf استخراج شد.
+2025-03-06 06:48:14,983 - RAGSystem - INFO - 606 چانک از /home/mohammad/Downloads/pdfs/1835882757.pdf استخراج شد.
+2025-03-06 06:48:14,987 - RAGSystem - INFO - ساخت پایگاه داده برداری با 1225 چانک
+2025-03-06 06:48:15,010 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:07:17,257 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:07:17,424 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:07:17,424 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 07:07:17,426 - RAGSystem - INFO - Starting processing /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:07:17,427 - RAGSystem - ERROR - Error processing /home/mohammad/Downloads/pdfs/1835882757.pdf: Only one live display may be active at once
+2025-03-06 07:07:17,427 - RAGSystem - INFO - Starting processing /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:07:17,427 - RAGSystem - ERROR - Error processing /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf: Only one live display may be active at once
+2025-03-06 07:07:17,428 - RAGSystem - ERROR - هیچ چانکی برای ایندکس کردن یافت نشد
+2025-03-06 07:07:52,183 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:07:52,346 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:07:52,346 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 07:07:52,348 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:07:52,350 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:07:57,382 - RAGSystem - INFO - 619 چانک از /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf استخراج شد.
+2025-03-06 07:07:58,867 - RAGSystem - INFO - 606 چانک از /home/mohammad/Downloads/pdfs/1835882757.pdf استخراج شد.
+2025-03-06 07:07:58,869 - RAGSystem - INFO - ساخت پایگاه داده برداری با 1225 چانک
+2025-03-06 07:10:36,030 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-03-06 07:10:36,196 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:10:36,196 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 07:10:36,198 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:10:36,198 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:10:36,198 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf: Only one live display may be active at once
+2025-03-06 07:10:36,198 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf: Only one live display may be active at once
+2025-03-06 07:10:36,198 - RAGSystem - WARNING - No chunks extracted from /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:10:36,199 - RAGSystem - WARNING - No chunks extracted from /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:10:36,200 - RAGSystem - INFO - پایگاه داده با موفقیت در db ذخیره شد
+2025-03-06 07:10:54,476 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:10:54,476 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 07:10:54,478 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:10:54,478 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf: Only one live display may be active at once
+2025-03-06 07:10:54,478 - RAGSystem - WARNING - No chunks extracted from /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:10:54,478 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:10:54,478 - RAGSystem - ERROR - خطا در پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf: Only one live display may be active at once
+2025-03-06 07:10:54,478 - RAGSystem - WARNING - No chunks extracted from /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:10:54,480 - RAGSystem - ERROR - هیچ چانکی برای ایندکس کردن یافت نشد
+2025-03-06 07:11:25,022 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:11:25,022 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 07:11:25,024 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:11:25,024 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:11:30,425 - RAGSystem - INFO - 619 چانک از /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf استخراج شد.
+2025-03-06 07:13:16,472 - RAGSystem - INFO - شروع پردازش فایل‌های PDF در /home/mohammad/Downloads/pdfs/
+2025-03-06 07:13:16,472 - RAGSystem - INFO - تعداد 2 فایل PDF یافت شد
+2025-03-06 07:13:16,474 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/1835882757.pdf
+2025-03-06 07:13:16,474 - RAGSystem - INFO - شروع پردازش /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf
+2025-03-06 07:13:21,668 - RAGSystem - INFO - 619 چانک از /home/mohammad/Downloads/pdfs/Deep_Learning_from_Scratch_Building_With_Python_From_First_Principles.pdf استخراج شد.
+2025-03-06 07:13:23,032 - RAGSystem - INFO - 606 چانک از /home/mohammad/Downloads/pdfs/1835882757.pdf استخراج شد.
+2025-03-06 07:13:23,035 - RAGSystem - INFO - ساخت پایگاه داده برداری با 1225 چانک
+2025-03-06 07:13:23,050 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.

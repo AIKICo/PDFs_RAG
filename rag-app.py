@@ -232,7 +232,7 @@ class RAGSystem:
                     self.db = Chroma.from_documents(
                         documents=first_batch,
                         embedding=self.embeddings,
-                        persist_directory=self.persist_directory
+                        persist_directory=self.persist_directory,
                     )
                     self.db = Chroma(
                         persist_directory=self.persist_directory,
