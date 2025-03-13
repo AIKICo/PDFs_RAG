@@ -2,52 +2,49 @@ import hashlib
 import json
 import os
 import sqlite3
-from typing import List, Dict
+from typing import List, Dict, Union
 
-# Document processing
 from docling.document_converter import DocumentConverter
-# Use Chroma for vector store
 from langchain_chroma import Chroma
 from langchain_core.document_loaders import BaseLoader
-# Persian support
 from langchain_core.documents import Document as LCDocument
 from langchain_core.prompts import PromptTemplate
-# Huggingface embeddings instead of Ollama
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from TextProcessing.FastPersianNormalizer import FastPersianNormalizer
 
-# Define constants
-DB_PATH = "pdf_database.db"
+DB_PATH = "document_database.db"
 VECTOR_STORE_PATH = "chroma_db"
 
 
-class DoclingLoader(BaseLoader):
-    """Processes documents using Docling with Persian language support"""
-
-    def __init__(self, file_path: str | list[str]) -> None:
+class EnhancedDoclingLoader(BaseLoader):
+    def __init__(self, file_path: Union[str, List[str]]) -> None:
         self._file_paths = file_path if isinstance(file_path, list) else [file_path]
         self._converter = DocumentConverter()
         self.normalizer = FastPersianNormalizer()
 
     def load(self) -> List[LCDocument]:
-        """Load all documents at once"""
         docs = []
         for source in self._file_paths:
             try:
-                dl_doc = self._converter.convert(source).document
-                text = dl_doc.export_to_markdown()
-                normalized_text = self.normalizer.normalize(text)
+                file_ext = os.path.splitext(source)[1].lower()
 
-                metadata = {
-                    "source": source,
-                    "filename": os.path.basename(source),
-                    "filetype": os.path.splitext(source)[1][1:],
-                }
+                if file_ext in ['.pdf', '.docx', '.xlsx', '.pptx', '.txt', '.md', '.rtf', '.odt', '.ods', '.odp']:
+                    dl_doc = self._converter.convert(source).document
+                    text = dl_doc.export_to_markdown()
+                    normalized_text = self.normalizer.normalize(text)
 
-                docs.append(LCDocument(page_content=normalized_text, metadata=metadata))
+                    metadata = {
+                        "source": source,
+                        "filename": os.path.basename(source),
+                        "filetype": file_ext[1:],
+                    }
+
+                    docs.append(LCDocument(page_content=normalized_text, metadata=metadata))
+                else:
+                    print(f"Unsupported file type: {file_ext}")
             except Exception as e:
                 print(f"Error processing {source}: {e}")
         return docs
@@ -56,57 +53,51 @@ class DoclingLoader(BaseLoader):
 class DocumentProcess:
     def __init__(self, model_name: str = "gemma3",
                  embeddings_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
-        """
-        Initialize with LLM and embedding models
-
-        Args:
-            model_name: Ollama model name for response generation
-            embeddings_model: HuggingFace model name for embeddings
-        """
         self.model_name = model_name
         self.embeddings_model = embeddings_model
         self.db_conn = self._init_database()
 
-        # Use HuggingFace embeddings instead of Ollama
         self.hf_embeddings = HuggingFaceEmbeddings(
             model_name=embeddings_model,
             model_kwargs={'device': 'cpu'},
-            cache_folder="./hf_cache"  # Cache embeddings locally
+            cache_folder="./hf_cache"
         )
 
-        # Persian-aware text splitter with simplified settings
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
             separators=["\n\n", "\n", ".", "!", "?", "،", "؛", " ", ""],
         )
 
-        # Initialize vector store
         self.vector_store = Chroma(
             persist_directory=VECTOR_STORE_PATH,
             embedding_function=self.hf_embeddings
         )
 
-        # RAG prompt template
         self.prompt = PromptTemplate.from_template("""
-        متن زمینه در زیر آمده است.
-        ---------------------
-        {context}
-        ---------------------
-        با توجه به اطلاعات زمینه و بدون استفاده از دانش قبلی، به پرسش پاسخ دهید.
-        پرسش: {question}
-        پاسخ:
-        """)
+                شما یک دستیار هوش مصنوعی هستید که تنها بر اساس اطلاعات زمینه پاسخ می‌دهد. 
+                از هیچ دانش خارجی یا فرضیات خود استفاده نکنید.
+
+                🔹 **متن زمینه:**  
+                ---------------------  
+                {context}  
+                ---------------------  
+
+                🔹 **پرسش:**  
+                {question}  
+
+                🔹 **پاسخ دقیق و مستند (فقط از متن زمینه):**  
+                """)
 
     @staticmethod
     def _init_database() -> sqlite3.Connection:
-        """Initialize SQLite database for tracking processed files"""
         conn = sqlite3.connect(DB_PATH)
         conn.execute('''
         CREATE TABLE IF NOT EXISTS processed_files (
             file_hash TEXT PRIMARY KEY,
             file_path TEXT,
             file_name TEXT,
+            file_type TEXT,
             page_count INTEGER,
             processed_at TEXT,
             metadata TEXT
@@ -117,15 +108,22 @@ class DocumentProcess:
 
     @staticmethod
     def _calculate_file_hash(file_path: str) -> str:
-        """Calculate SHA-256 hash of a file"""
         sha256_hash = hashlib.sha256()
         with open(file_path, "rb") as f:
             for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
+    def get_file_stats(self, file_path: str) -> Dict:
+        file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
+        file_type = os.path.splitext(file_path)[1][1:].lower()
+        return {
+            "file_size": round(file_size, 2),
+            "file_type": file_type,
+            "file_name": os.path.basename(file_path)
+        }
+
     def process_documents(self, file_paths: List[str], progress_callback=None) -> Dict:
-        """Process documents and add to vector store if not already processed"""
         new_documents = []
         processed_count = skipped_count = 0
         errors = []
@@ -136,46 +134,49 @@ class DocumentProcess:
                 continue
 
             file_hash = self._calculate_file_hash(file_path)
+            file_stats = self.get_file_stats(file_path)
 
-            # Check if already processed
             cursor = self.db_conn.cursor()
             cursor.execute("SELECT 1 FROM processed_files WHERE file_hash = ?", (file_hash,))
             if cursor.fetchone():
                 skipped_count += 1
                 if progress_callback:
-                    progress_callback(i + 1, len(file_paths), f"رد کردن فایل تکراری: {os.path.basename(file_path)}")
+                    progress_callback(i + 1, len(file_paths), f"رد کردن فایل تکراری: {file_stats['file_name']}")
                 continue
 
             try:
                 if progress_callback:
-                    progress_callback(i + 1, len(file_paths), f"در حال پردازش: {os.path.basename(file_path)}")
+                    progress_callback(i + 1, len(file_paths),
+                                      f"در حال پردازش: {file_stats['file_name']} ({file_stats['file_size']} MB)")
 
-                # Load and process document
-                documents = DoclingLoader(file_path).load()
+                documents = EnhancedDoclingLoader(file_path).load()
+
+                if not documents:
+                    errors.append(f"فایل پشتیبانی نمی‌شود یا خالی است: {file_path}")
+                    continue
+
                 page_count = len(documents)
-
-                # Split into chunks
                 chunks = self.text_splitter.split_documents(documents)
                 new_documents.extend(chunks)
 
-                # Record in database
                 self.db_conn.execute(
-                    "INSERT INTO processed_files VALUES (?, ?, ?, ?, datetime('now'), ?)",
+                    "INSERT INTO processed_files VALUES (?, ?, ?, ?, ?, datetime('now'), ?)",
                     (
                         file_hash,
                         file_path,
-                        os.path.basename(file_path),
+                        file_stats['file_name'],
+                        file_stats['file_type'],
                         page_count,
-                        json.dumps({"language": "mixed", "contains_persian": True})
+                        json.dumps(
+                            {"language": "mixed", "contains_persian": True, "file_size_mb": file_stats['file_size']})
                     )
                 )
                 self.db_conn.commit()
                 processed_count += 1
 
             except Exception as e:
-                errors.append(f"خطا در پردازش {file_path}: {e}")
+                errors.append(f"خطا در پردازش {file_path}: {str(e)}")
 
-        # Add documents to vector store if any new ones
         if new_documents:
             if progress_callback:
                 progress_callback(len(file_paths), len(file_paths),
@@ -190,35 +191,30 @@ class DocumentProcess:
         }
 
     def query(self, question: str, top_k: int = 4, progress_callback=None) -> str:
-        """Optimized query function with error handling"""
         try:
-            # Progress reporting
             if progress_callback:
                 progress_callback(0.3, "در حال جستجوی اطلاعات مرتبط...")
 
-            # Create retriever with limited top_k
             retriever = self.vector_store.as_retriever(search_kwargs={"k": top_k})
-
-            # Get source documents
             source_docs = retriever.invoke(question)
 
-            # Format context
+            if not source_docs:
+                return "اطلاعات مرتبطی با پرسش شما یافت نشد."
+
             context = "\n\n".join(doc.page_content for doc in source_docs)
 
             if progress_callback:
                 progress_callback(0.7, "در حال تولید پاسخ...")
 
-            # Generate response with explicit base_url
             llm = OllamaLLM(
                 model=self.model_name,
-                base_url="http://localhost:11434",  # Explicitly set base URL
-                temperature=0.1  # Lower temperature for more focused responses
+                base_url="http://localhost:11434",
+                temperature=0.1
             )
             answer = llm.invoke(self.prompt.format(context=context, question=question))
 
-            # Format sources
             sources = "\n".join(
-                f"منبع {i}: {os.path.basename(doc.metadata.get('source', 'منبع ناشناخته'))}"
+                f"منبع {i}: {os.path.basename(doc.metadata.get('source', 'منبع ناشناخته'))} (نوع: {doc.metadata.get('filetype', 'نامشخص')})"
                 for i, doc in enumerate(source_docs, 1)
             )
 
@@ -231,21 +227,40 @@ class DocumentProcess:
             error_message = f"خطا در پردازش پرسش: {str(e)}"
             print(error_message)
             return f"متأسفانه خطایی رخ داد: {error_message}\n\nلطفاً اطمینان حاصل کنید که سرویس Ollama در حال اجراست و مدل {self.model_name} نصب شده است."
+
     def list_processed_files(self) -> List[Dict]:
-        """List all processed files"""
         cursor = self.db_conn.cursor()
-        cursor.execute("SELECT file_path, file_name, page_count, processed_at FROM processed_files")
+        cursor.execute(
+            "SELECT file_path, file_name, file_type, page_count, processed_at, metadata FROM processed_files")
         return [
             {
                 "file_path": row[0],
                 "file_name": row[1],
-                "page_count": row[2],
-                "processed_at": row[3]
+                "file_type": row[2],
+                "page_count": row[3],
+                "processed_at": row[4],
+                "metadata": json.loads(row[5]) if row[5] else {}
             }
             for row in cursor.fetchall()
         ]
 
+    def remove_document(self, file_hash: str) -> bool:
+        try:
+            cursor = self.db_conn.cursor()
+            cursor.execute("SELECT file_path FROM processed_files WHERE file_hash = ?", (file_hash,))
+            result = cursor.fetchone()
+
+            if not result:
+                return False
+
+            cursor.execute("DELETE FROM processed_files WHERE file_hash = ?", (file_hash,))
+            self.db_conn.commit()
+
+            return True
+        except Exception as e:
+            print(f"Error removing document: {e}")
+            return False
+
     def close(self):
-        """Close database connection"""
         if hasattr(self, 'db_conn') and self.db_conn:
             self.db_conn.close()
