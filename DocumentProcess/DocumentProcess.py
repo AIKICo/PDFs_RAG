@@ -181,7 +181,7 @@ class DocumentProcess:
             llm = ChatOllama(
                 model=self.model_name,
                 base_url="http://localhost:11434",
-                temperature=0.1
+                temperature=0.7
             )
 
             # ایجاد chain با حافظه
