@@ -23,6 +23,9 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* تنظیمات عمومی RTL */
+    html, body{
+        direction: rtl;
+    }
     .stApp {
         direction: rtl;
     }
@@ -120,10 +123,10 @@ st.markdown("""
 
     /* اصلاح اسلایدر */
     div[data-testid="stSlider"] {
-        direction: rtl;
+        direction: ltr;
     }
     div[data-testid="stSlider"] > div {
-        direction: rtl;
+        direction: ltr;
     }
 
     /* اصلاح فونت */
