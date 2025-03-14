@@ -175,7 +175,7 @@ class DocumentProcess:
             llm = OllamaLLM(
                 model=self.model_name,
                 base_url="http://localhost:11434",
-                temperature=0.1
+                temperature=0.7
             )
             answer = llm.invoke(self.prompt.format(context=context, question=question))
 
