@@ -5,11 +5,10 @@ import sqlite3
 from typing import List, Dict
 
 from langchain_chroma import Chroma
-from langchain_core.prompts import PromptTemplate
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_ollama import OllamaLLM
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from DocumentProcess.MemoryBasedQA import MemoryBasedQA
 from FileProcessing.EnhancedDoclingLoader import EnhancedDoclingLoader
 
 DB_PATH = "document_database.db"
@@ -22,6 +21,8 @@ class DocumentProcess:
         self.model_name = model_name
         self.embeddings_model = embeddings_model
         self.db_conn = self._init_database()
+
+        self.memory_qa = MemoryBasedQA(model_name=model_name)  # 🔹 افزودن حافظه مکالمه‌ای
 
         self.hf_embeddings = HuggingFaceEmbeddings(
             model_name=embeddings_model,
@@ -39,21 +40,6 @@ class DocumentProcess:
             persist_directory=VECTOR_STORE_PATH,
             embedding_function=self.hf_embeddings
         )
-
-        self.prompt = PromptTemplate.from_template("""
-                شما یک دستیار هوش مصنوعی هستید که تنها بر اساس اطلاعات زمینه پاسخ می‌دهد. 
-                از هیچ دانش خارجی یا فرضیات خود استفاده نکنید.
-
-                🔹 **متن زمینه:**  
-                ---------------------  
-                {context}  
-                ---------------------  
-
-                🔹 **پرسش:**  
-                {question}  
-
-                🔹 **پاسخ دقیق و مستند (فقط از متن زمینه):**  
-                """)
 
     @staticmethod
     def _init_database() -> sqlite3.Connection:
@@ -172,12 +158,9 @@ class DocumentProcess:
             if progress_callback:
                 progress_callback(0.7, "در حال تولید پاسخ...")
 
-            llm = OllamaLLM(
-                model=self.model_name,
-                base_url="http://localhost:11434",
-                temperature=0.1
-            )
-            answer = llm.invoke(self.prompt.format(context=context, question=question))
+            # 🔹 ترکیب اطلاعات زمینه‌ای با مکالمات قبلی
+            full_question = f"{context}\n\nسوال: {question}"
+            answer = self.memory_qa.ask(full_question)
 
             sources = "\n".join(
                 f"منبع {i}: {os.path.basename(doc.metadata.get('source', 'منبع ناشناخته'))} (نوع: {doc.metadata.get('filetype', 'نامشخص')})"
@@ -209,6 +192,10 @@ class DocumentProcess:
             }
             for row in cursor.fetchall()
         ]
+
+    def clear_memory(self):
+        """پاک کردن حافظه مکالمه‌ای"""
+        self.memory_qa.clear_memory()
 
     def remove_document(self, file_hash: str) -> bool:
         try:
