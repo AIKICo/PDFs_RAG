@@ -2,13 +2,15 @@ import hashlib
 import json
 import os
 import sqlite3
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from langchain_chroma import Chroma
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain.memory import ConversationBufferMemory
+from langchain.memory.chat_memory import BaseChatMemory
 
 from FileProcessing.EnhancedDoclingLoader import EnhancedDoclingLoader
 
@@ -18,10 +20,17 @@ VECTOR_STORE_PATH = "chroma_db"
 
 class DocumentProcess:
     def __init__(self, model_name: str = "gemma3",
-                 embeddings_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
+                 embeddings_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                 memory: Optional[BaseChatMemory] = None):
         self.model_name = model_name
         self.embeddings_model = embeddings_model
         self.db_conn = self._init_database()
+
+        # اضافه کردن حافظه گفتگو
+        self.memory = memory or ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True
+        )
 
         self.hf_embeddings = HuggingFaceEmbeddings(
             model_name=embeddings_model,
@@ -40,8 +49,10 @@ class DocumentProcess:
             embedding_function=self.hf_embeddings
         )
 
-        self.prompt = PromptTemplate.from_template("""
-                شما یک دستیار هوش مصنوعی هستید که تنها بر اساس اطلاعات زمینه پاسخ می‌دهد. 
+        # تغییر الگوی پرامپت برای پشتیبانی از حافظه گفتگو
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """
+                شما یک دستیار هوش مصنوعی هستید که بر اساس اطلاعات زمینه و تاریخچه گفتگو پاسخ می‌دهد. 
                 از هیچ دانش خارجی یا فرضیات خود استفاده نکنید.
 
                 🔹 **متن زمینه:**  
@@ -49,11 +60,11 @@ class DocumentProcess:
                 {context}  
                 ---------------------  
 
-                🔹 **پرسش:**  
-                {question}  
-
-                🔹 **پاسخ دقیق و مستند (فقط از متن زمینه):**  
-                """)
+                تاریخچه گفتگو و سوال جدید کاربر را در نظر بگیرید.
+                """),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{question}")
+        ])
 
     @staticmethod
     def _init_database() -> sqlite3.Connection:
@@ -157,11 +168,23 @@ class DocumentProcess:
         }
 
     def query(self, question: str, top_k: int = 4, progress_callback=None) -> str:
+        """
+        پرسش از سیستم با استفاده از حافظه گفتگو
+        """
         try:
+            if progress_callback:
+                progress_callback(0.2, "در حال بازیابی تاریخچه گفتگو...")
+
+            # بازیابی تاریخچه گفتگو
+            chat_history = self.memory.load_memory_variables({})["chat_history"]
+
             if progress_callback:
                 progress_callback(0.3, "در حال جستجوی اطلاعات مرتبط...")
 
+            # ایجاد یک بازیاب برای سندها
             retriever = self.vector_store.as_retriever(search_kwargs={"k": top_k})
+
+            # بازیابی اسناد مرتبط
             source_docs = retriever.invoke(question)
 
             if not source_docs:
@@ -172,12 +195,29 @@ class DocumentProcess:
             if progress_callback:
                 progress_callback(0.7, "در حال تولید پاسخ...")
 
+            # تنظیم مدل زبانی
             llm = OllamaLLM(
                 model=self.model_name,
                 base_url="http://localhost:11434",
                 temperature=0.1
             )
-            answer = llm.invoke(self.prompt.format(context=context, question=question))
+
+            # ایجاد زنجیره پرسش و پاسخ با حافظه
+            ragchain = (
+                    {
+                        "context": lambda x: context,
+                        "question": lambda x: x,
+                        "chat_history": lambda _: chat_history
+                    }
+                    | self.prompt
+                    | llm
+            )
+
+            # اجرای زنجیره و دریافت پاسخ
+            answer = ragchain.invoke(question)
+
+            # افزودن به حافظه گفتگو
+            self.memory.save_context({"input": question}, {"output": answer})
 
             sources = "\n".join(
                 f"منبع {i}: {os.path.basename(doc.metadata.get('source', 'منبع ناشناخته'))} (نوع: {doc.metadata.get('filetype', 'نامشخص')})"
@@ -193,6 +233,12 @@ class DocumentProcess:
             error_message = f"خطا در پردازش پرسش: {str(e)}"
             print(error_message)
             return f"متأسفانه خطایی رخ داد: {error_message}\n\nلطفاً اطمینان حاصل کنید که سرویس Ollama در حال اجراست و مدل {self.model_name} نصب شده است."
+
+    def clear_memory(self):
+        """
+        پاک کردن حافظه گفتگو
+        """
+        self.memory.clear()
 
     def list_processed_files(self) -> List[Dict]:
         cursor = self.db_conn.cursor()
