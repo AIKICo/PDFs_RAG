@@ -167,7 +167,7 @@ class DocumentProcess:
             "new_chunks": len(new_documents)
         }
 
-    def query(self, question: str, top_k: int = 4, progress_callback=None) -> str:
+    def query(self, question: str, top_k: int = 1, progress_callback=None) -> str:
         """
         پرسش از سیستم با استفاده از حافظه گفتگو
         """
@@ -182,7 +182,7 @@ class DocumentProcess:
                 progress_callback(0.3, "در حال جستجوی اطلاعات مرتبط...")
 
             # ایجاد یک بازیاب برای سندها
-            retriever = self.vector_store.as_retriever(search_kwargs={"k": top_k})
+            retriever = self.vector_store.as_retriever(search_type="mmr", search_kwargs={"k": top_k})
 
             # بازیابی اسناد مرتبط
             source_docs = retriever.invoke(question)
