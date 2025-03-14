@@ -5,12 +5,12 @@ import sqlite3
 from typing import List, Dict
 
 from langchain_chroma import Chroma
+from langchain_community.chat_message_histories import FileChatMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_community.chat_message_histories import FileChatMessageHistory
 
 from FileProcessing.EnhancedDoclingLoader import EnhancedDoclingLoader
 
@@ -52,25 +52,27 @@ class DocumentProcess:
         # الگوی پیام چت
         self.prompt = ChatPromptTemplate.from_messages([
             ("system",
-             "شما یک دستیار هوش مصنوعی هستید که تنها بر اساس اطلاعات زمینه و تاریخچه گفتگو پاسخ می‌دهد. از هیچ دانش خارجی یا فرضیات خود استفاده نکنید."),
+             "شما یک دستیار هوش مصنوعی هستید که بر اساس اطلاعات زمینه و تاریخچه گفتگو پاسخ می‌دهید. "
+             "در پاسخ‌های خود دقت کنید و فقط بر اساس داده‌های ارائه‌شده نتیجه‌گیری کنید. "
+             "اگر اطلاعات کافی ندارید، بگویید که نمی‌توانید پاسخ دهید."),
             MessagesPlaceholder(variable_name="history"),
-            ("human", "داده شده این متن زمینه:\n{context}\n\nلطفاً به این پرسش پاسخ دهید:\n{question}")
+            ("human", "متن زمینه:\n{context}\n\nپرسش:\n{question}\n\nپاسخ خود را ارائه دهید.")
         ])
 
     @staticmethod
     def _init_database() -> sqlite3.Connection:
         conn = sqlite3.connect(DB_PATH)
         conn.execute('''
-        CREATE TABLE IF NOT EXISTS processed_files (
-            file_hash TEXT PRIMARY KEY,
-            file_path TEXT,
-            file_name TEXT,
-            file_type TEXT,
-            page_count INTEGER,
-            processed_at TEXT,
-            metadata TEXT
-        )
-        ''')
+            CREATE TABLE IF NOT EXISTS processed_files (
+                file_hash TEXT PRIMARY KEY,
+                file_path TEXT,
+                file_name TEXT,
+                file_type TEXT,
+                page_count INTEGER,
+                processed_at TEXT,
+                metadata TEXT
+            )
+            ''')
         conn.commit()
         return conn
 
@@ -164,7 +166,7 @@ class DocumentProcess:
                 progress_callback(0.3, "در حال جستجوی اطلاعات مرتبط...")
 
             # بازیابی اسناد مرتبط
-            retriever = self.vector_store.as_retriever(search_kwargs={"k": top_k})
+            retriever = self.vector_store.as_retriever(search_type="mmr", search_kwargs={"k": top_k, "fetch_k": 5})
             source_docs = retriever.invoke(question)
 
             if not source_docs:
@@ -249,7 +251,6 @@ class DocumentProcess:
     def close(self):
         if hasattr(self, 'db_conn') and self.db_conn:
             self.db_conn.close()
-
 
     def clearChatHitsory(self):
         self.message_history.clear()

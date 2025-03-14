@@ -205,8 +205,14 @@ def main():
                         response = processor.query(query, top_k, update_query_progress)
 
                     st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    st.subheader("پاسخ:")
+                    st.markdown(f'<div class="chat-message assistant-message">🤖 {response}</div>',
+                                unsafe_allow_html=True)
+
                     progress_bar.empty()
                     progress_placeholder.empty()
+
+
                     st.rerun()
 
                 # دکمه پاک کردن گفتگو
