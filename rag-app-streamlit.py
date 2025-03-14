@@ -5,7 +5,7 @@ import streamlit as st
 import torch
 from langchain.chains import RetrievalQA
 
-from FileProcessing.DocumentProcess import DocumentProcess
+from DocumentProcess.DocumentProcess import DocumentProcess
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 torch.classes.__path__ = [os.path.join(torch.__path__[0], torch.classes.__file__)]
