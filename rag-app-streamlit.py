@@ -3,7 +3,6 @@ import tempfile
 
 import streamlit as st
 import torch
-from langchain.chains import RetrievalQA
 
 from DocumentProcess.DocumentProcess import DocumentProcess
 
@@ -20,215 +19,64 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# استفاده از فونت Vazirmatn از لینک ایمن و اعمال آن به کل رابط کاربری
 st.markdown("""
 <style>
-    /* تنظیمات عمومی RTL */
-    html, body{
+    @import url('https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css');
+
+    html, body {
         direction: rtl;
+        font-family: 'Vazirmatn', sans-serif !important;
     }
     .stApp {
         direction: rtl;
+        font-family: 'Vazirmatn', sans-serif !important;
     }
-
-    /* اصلاح نوار اسکرول */
-    ::-webkit-scrollbar {
-        width: 10px;
-    }
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #888;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-
-    /* اصلاح جزئیات رابط کاربری */
-    .element-container div {
-        direction: rtl;
-    }
-
-    /* اصلاح دکمه‌ها */
-    .stButton button {
-        direction: rtl;
-        text-align: center;
-        width: 100%;
-    }
-
-    /* اصلاح جداول */
-    th, td {
-        text-align: right !important;
-    }
-
-    /* اصلاح فرم‌ها */
-    div[data-testid="stForm"] {
-        direction: rtl;
-        text-align: right;
-    }
-
-    /* اصلاح متن‌ها */
-    div[data-testid="stMarkdown"] {
-        direction: rtl;
-        text-align: right;
-    }
-    div[data-testid="stText"] {
-        direction: rtl;
-        text-align: right;
-    }
-
-    /* اصلاح جدول‌ها */
-    div[data-testid="stTable"] th, div[data-testid="stTable"] td {
-        text-align: right !important;
-    }
-
-    /* اصلاح آپلودر فایل */
-    div[data-testid="stFileUploader"] {
-        direction: rtl;
-    }
-    div[data-testid="stFileUploader"] > label {
-        direction: rtl;
-        text-align: right;
-    }
-
-    /* اصلاح فیلدهای متنی */
-    div[data-testid="stTextArea"] {
-        direction: rtl;
-    }
-    div[data-testid="stTextArea"] label {
-        direction: rtl;
-        text-align: right;
-    }
-    div[data-testid="stTextInput"] {
-        direction: rtl;
-    }
-    div[data-testid="stTextInput"] label {
-        direction: rtl;
-        text-align: right;
-    }
-
-    /* اصلاح نوار کناری */
-    div[data-testid="stSidebar"] {
-        direction: rtl;
-        text-align: right;
-    }
-    section[data-testid="stSidebar"] > div {
-        direction: rtl;
-    }
-
-    /* اصلاح expander */
-    div[data-testid="stExpander"] {
-        direction: rtl;
-    }
-
-    /* اصلاح اسلایدر */
-    div[data-testid="stSlider"] {
-        direction: ltr;
-    }
-    div[data-testid="stSlider"] > div {
-        direction: ltr;
-    }
-
-    /* اصلاح فونت */
     * {
-        font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
+        font-family: 'Vazirmatn', sans-serif !important;
     }
-
-    /* اصلاح متریک‌ها */
-    div[data-testid="stMetric"] {
+    .chat-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        background-color: #fafafa;
+    }
+    .chat-message {
         direction: rtl;
         text-align: right;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+        max-width: 80%;
     }
-    div[data-testid="stMetric"] label {
-        text-align: right;
+    .user-message {
+        background-color: #d4eaff;
+        margin-left: auto;
     }
-
-    /* اصلاح پیام‌های خطا و هشدار */
-    div[data-testid="stAlert"] {
-        direction: rtl;
-        text-align: right;
+    .assistant-message {
+        background-color: #e6e6e6;
+        margin-right: auto;
     }
-
-    /* اصلاح دکمه‌های رادیویی */
-    div[data-testid="stRadio"] {
-        direction: rtl;
-    }
-    div[data-testid="stRadio"] label {
-        text-align: right;
-    }
-
-    /* اصلاح باکس‌های انتخاب */
-    div[data-testid="stCheckbox"] {
-        direction: rtl;
-    }
-    div[data-testid="stCheckbox"] label {
-        text-align: right;
-    }
-
-    /* اصلاح پیشرفت‌بار */
-    div[data-testid="stProgressBar"] {
-        direction: ltr;
-    }
-
-    /* اصلاح دکمه‌های منو */
-    button[kind="primary"], button[kind="secondary"] {
-        width: 100%;
-        text-align: center;
-    }
-
-    /* اصلاح پاسخ‌ها */
-    div.response-box {
-        direction: rtl;
-        text-align: right;
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 10px;
-        margin-top: 10px;
-        margin-bottom: 10px;
-        line-height: 1.6;
-    }
-
-    /* اصلاح منابع */
-    div.source-item {
-        direction: rtl;
-        text-align: right;
-        padding: 8px 0;
-        border-bottom: 1px solid #eee;
-    }
-
-    /* اصلاح فونت عنوان‌ها */
+    /* سایر استایل‌ها */
     h1, h2, h3, h4, h5, h6 {
-        font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
+        font-family: 'Vazirmatn', sans-serif !important;
         font-weight: bold;
     }
-
-    /* اصلاح دکمه‌های نوار کناری */
-    .css-1oe5cao {
-        padding-right: 1rem !important;
-        padding-left: 1rem !important;
+    div[data-testid="stExpander"] {
+        direction: rtl;
+        text-align: right;
     }
 </style>
-
-<!-- افزودن فونت وزیرمتن -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
 """, unsafe_allow_html=True)
 
 
 def get_file_icon(file_type):
     icons = {
-        'pdf': '📄',
-        'docx': '📝',
-        'doc': '📝',
-        'xlsx': '📊',
-        'xls': '📊',
-        'pptx': '📊',
-        'ppt': '📊',
-        'txt': '📋',
-        'md': '📝',
-        'rtf': '📄',
-        'odt': '📝',
-        'ods': '📊',
-        'odp': '📊',
+        'pdf': '📄', 'docx': '📝', 'doc': '📝', 'xlsx': '📊', 'xls': '📊',
+        'pptx': '📊', 'ppt': '📊', 'txt': '📋', 'md': '📝', 'rtf': '📄',
+        'odt': '📝', 'ods': '📊', 'odp': '📊',
     }
     return icons.get(file_type.lower(), '📁')
 
@@ -237,10 +85,8 @@ def save_uploaded_file(uploaded_file):
     try:
         temp_dir = tempfile.gettempdir()
         file_path = os.path.join(temp_dir, uploaded_file.name)
-
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-
         return file_path
     except Exception as e:
         st.error(f"خطا در ذخیره فایل: {e}")
@@ -260,13 +106,15 @@ def main():
 
     processor = DocumentProcess(model_name=model_name, embeddings_model=embeddings_model)
 
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+
     try:
         if page == "پردازش فایل‌ها":
             st.title("پردازش اسناد")
             st.write("فایل‌های خود را آپلود کنید تا پردازش شوند.")
 
-            supported_formats = ["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "rtf", "odt", "ods",
-                                 "odp"]
+            supported_formats = ["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "rtf", "odt", "ods", "odp"]
             formats_display = ", ".join([f".{fmt}" for fmt in supported_formats])
 
             uploaded_files = st.file_uploader(f"فایل‌ها را انتخاب کنید ({formats_display})",
@@ -279,7 +127,6 @@ def main():
 
             if uploaded_files and process_button:
                 file_paths = []
-
                 progress_bar = st.progress(0)
                 status_text = st.empty()
 
@@ -319,51 +166,59 @@ def main():
 
             files = processor.list_processed_files()
             if not files:
-                st.warning("هیچ فایلی در پایگاه داده موجود نیست. لطفا ابتدا فایل‌ها را پردازش کنید.")
+                st.warning("هیچ فایلی در پایگاه داده موجود نیست. لطفاً ابتدا فایل‌ها را پردازش کنید.")
             else:
                 st.write(f"{len(files)} فایل در پایگاه داده موجود است.")
 
-                query = st.text_area("پرسش خود را وارد کنید:", height=100)
-
-                col1, col2, col3 = st.columns([3, 1, 1])
-                with col1:
-                    top_k = st.slider("تعداد منابع برای بازیابی:", min_value=1, max_value=10, value=4)
-                with col3:
-                    submit_button = st.button("ارسال پرسش", type="primary")
-
-                if submit_button:
-                    if not query:
-                        st.warning("لطفا یک پرسش وارد کنید.")
-                    else:
-                        progress_placeholder = st.empty()
-                        progress_bar = st.progress(0)
-
-                        def update_query_progress(progress, message):
-                            progress_bar.progress(progress)
-                            progress_placeholder.text(message)
-
-                        with st.spinner("در حال پردازش پرسش..."):
-                            response = processor.query(query, top_k, update_query_progress)
-
-                        st.subheader("پاسخ:")
-
-                        parts = response.split("\n\nمنابع:\n")
-                        answer = parts[0].replace("پاسخ: ", "")
-                        references = parts[1] if len(parts) > 1 else ""
-
-                        st.markdown(
-                            f"""<div style="direction: rtl; text-align: right; background-color: #f0f2f6; padding: 20px; border-radius: 10px;">{answer}</div>""",
-                            unsafe_allow_html=True)
-
-                        with st.expander("منابع استفاده شده"):
-                            for line in references.split("\n"):
-                                st.markdown(f"""<div style="direction: rtl; text-align: right;">{line}</div>""",
+                # تاریخچه گفتگو در یک expander
+                with st.expander("گفتگو", expanded=False):
+                    chat_container = st.container()
+                    with chat_container:
+                        for msg in st.session_state.chat_history:
+                            if msg["role"] == "user":
+                                st.markdown(f'<div class="chat-message user-message">👤 {msg["content"]}</div>',
                                             unsafe_allow_html=True)
+                            elif msg["role"] == "assistant":
+                                st.markdown(f'<div class="chat-message assistant-message">🤖 {msg["content"]}</div>',
+                                            unsafe_allow_html=True)
+
+                # فرم پرس‌وجو
+                with st.form(key="query_form", clear_on_submit=True):
+                    query = st.text_area("پرسش خود را وارد کنید:", height=100, key="query_input")
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        top_k = st.slider("تعداد منابع برای بازیابی:", min_value=1, max_value=10, value=4)
+                    with col3:
+                        submit_button = st.form_submit_button(label="ارسال", type="primary")
+
+                if submit_button and query:
+                    st.session_state.chat_history.append({"role": "user", "content": query})
+
+                    progress_placeholder = st.empty()
+                    progress_bar = st.progress(0)
+
+                    def update_query_progress(progress, message):
+                        progress_bar.progress(progress)
+                        progress_placeholder.text(message)
+
+                    with st.spinner("در حال پردازش..."):
+                        response = processor.query(query, top_k, update_query_progress)
+
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    progress_bar.empty()
+                    progress_placeholder.empty()
+                    st.rerun()
+
+                # دکمه پاک کردن گفتگو
+                if st.button("پاک کردن گفتگو", key="clear_chat"):
+                    st.session_state.chat_history = []
+                    processor.clearChatHitsory()
+                    st.success("گفتگو پاک شد.")
+                    st.rerun()
 
         elif page == "فایل‌های پردازش شده":
             st.title("فایل‌های پردازش شده")
 
-            # Add a session state flag for refreshing
             if 'refresh_files' not in st.session_state:
                 st.session_state.refresh_files = False
 

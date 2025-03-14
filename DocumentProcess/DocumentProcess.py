@@ -5,15 +5,18 @@ import sqlite3
 from typing import List, Dict
 
 from langchain_chroma import Chroma
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_ollama import OllamaLLM
+from langchain_ollama import ChatOllama
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_community.chat_message_histories import FileChatMessageHistory
 
 from FileProcessing.EnhancedDoclingLoader import EnhancedDoclingLoader
 
 DB_PATH = "document_database.db"
 VECTOR_STORE_PATH = "chroma_db"
+MEMORY_FILE_PATH = "memory.json"
 
 
 class DocumentProcess:
@@ -23,37 +26,36 @@ class DocumentProcess:
         self.embeddings_model = embeddings_model
         self.db_conn = self._init_database()
 
+        # تنظیمات حافظه گفتگو - استفاده از روش جدید
+        self.message_history = FileChatMessageHistory(MEMORY_FILE_PATH)
+
+        # تنظیمات تعبیه‌ها
         self.hf_embeddings = HuggingFaceEmbeddings(
             model_name=embeddings_model,
             model_kwargs={'device': 'cpu'},
             cache_folder="./hf_cache"
         )
 
+        # تنظیمات تقسیم‌کننده متن
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
             separators=["\n\n", "\n", ".", "!", "?", "،", "؛", " ", ""],
         )
 
+        # تنظیمات پایگاه داده برداری
         self.vector_store = Chroma(
             persist_directory=VECTOR_STORE_PATH,
             embedding_function=self.hf_embeddings
         )
 
-        self.prompt = PromptTemplate.from_template("""
-                شما یک دستیار هوش مصنوعی هستید که تنها بر اساس اطلاعات زمینه پاسخ می‌دهد. 
-                از هیچ دانش خارجی یا فرضیات خود استفاده نکنید.
-
-                🔹 **متن زمینه:**  
-                ---------------------  
-                {context}  
-                ---------------------  
-
-                🔹 **پرسش:**  
-                {question}  
-
-                🔹 **پاسخ دقیق و مستند (فقط از متن زمینه):**  
-                """)
+        # الگوی پیام چت
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system",
+             "شما یک دستیار هوش مصنوعی هستید که تنها بر اساس اطلاعات زمینه و تاریخچه گفتگو پاسخ می‌دهد. از هیچ دانش خارجی یا فرضیات خود استفاده نکنید."),
+            MessagesPlaceholder(variable_name="history"),
+            ("human", "داده شده این متن زمینه:\n{context}\n\nلطفاً به این پرسش پاسخ دهید:\n{question}")
+        ])
 
     @staticmethod
     def _init_database() -> sqlite3.Connection:
@@ -161,6 +163,7 @@ class DocumentProcess:
             if progress_callback:
                 progress_callback(0.3, "در حال جستجوی اطلاعات مرتبط...")
 
+            # بازیابی اسناد مرتبط
             retriever = self.vector_store.as_retriever(search_kwargs={"k": top_k})
             source_docs = retriever.invoke(question)
 
@@ -172,13 +175,29 @@ class DocumentProcess:
             if progress_callback:
                 progress_callback(0.7, "در حال تولید پاسخ...")
 
-            llm = OllamaLLM(
+            # تنظیم مدل ChatOllama
+            llm = ChatOllama(
                 model=self.model_name,
                 base_url="http://localhost:11434",
-                temperature=0.7
+                temperature=0.1
             )
-            answer = llm.invoke(self.prompt.format(context=context, question=question))
 
+            # ایجاد chain با حافظه
+            chain = self.prompt | llm
+            chain_with_history = RunnableWithMessageHistory(
+                chain,
+                lambda session_id: self.message_history,
+                input_messages_key="question",
+                history_messages_key="history",
+            )
+
+            # تولید پاسخ با استفاده از زنجیره با حافظه
+            answer = chain_with_history.invoke(
+                {"context": context, "question": question},
+                config={"configurable": {"session_id": "default"}}
+            ).content
+
+            # تهیه منابع
             sources = "\n".join(
                 f"منبع {i}: {os.path.basename(doc.metadata.get('source', 'منبع ناشناخته'))} (نوع: {doc.metadata.get('filetype', 'نامشخص')})"
                 for i, doc in enumerate(source_docs, 1)
@@ -230,3 +249,7 @@ class DocumentProcess:
     def close(self):
         if hasattr(self, 'db_conn') and self.db_conn:
             self.db_conn.close()
+
+
+    def clearChatHitsory(self):
+        self.message_history.clear()
