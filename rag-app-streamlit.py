@@ -213,7 +213,7 @@ def main():
                     progress_placeholder.empty()
 
 
-                    st.rerun()
+                    # st.rerun()
 
                 # دکمه پاک کردن گفتگو
                 if st.button("پاک کردن گفتگو", key="clear_chat"):
