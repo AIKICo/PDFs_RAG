@@ -1,9 +1,10 @@
 import os
 import tempfile
 
+import pandas as pd
 import streamlit as st
 import torch
-import pandas as pd
+
 from DocumentProcess.DocumentProcess import DocumentProcess
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -68,6 +69,43 @@ st.markdown("""
         direction: rtl;
         text-align: right;
     }
+    div[data-testid="stNumberInput"] label,
+    div[data-testid="stSlider"] label,
+    div[data-testid="stSelectSlider"] label {
+        text-align: right;
+        width: 100%;
+    }
+    
+    div[data-testid="stNumberInput"] div[data-testid="stWidgetLabel"] {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* استایل برای اعداد در RTL */
+    div[data-testid="stNumberInput"] div[aria-label="range"] {
+        direction: ltr;
+        text-align: left;
+    }
+    div[data-testid="stExpander"] {
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+    div[data-testid="stExpander"] > div[role="button"] {
+        font-size: 0.95em;
+        font-weight: 500;
+        color: #333;
+        padding: 8px 12px;
+    }
+    
+    /* تنظیم جهت و حاشیه‌های محتوای داخل expander */
+    div[data-testid="stExpander"] > div[data-testid="stExpanderContent"] {
+        direction: rtl;
+        text-align: right;
+        padding: 10px 15px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -114,7 +152,8 @@ def main():
             st.title("پردازش اسناد")
             st.write("فایل‌های خود را آپلود کنید تا پردازش شوند.")
 
-            supported_formats = ["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "rtf", "odt", "ods", "odp"]
+            supported_formats = ["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "rtf", "odt", "ods",
+                                 "odp"]
             formats_display = ", ".join([f".{fmt}" for fmt in supported_formats])
 
             uploaded_files = st.file_uploader(f"فایل‌ها را انتخاب کنید ({formats_display})",
@@ -170,26 +209,94 @@ def main():
             else:
                 st.write(f"{len(files)} فایل در پایگاه داده موجود است.")
 
-                # تاریخچه گفتگو در یک expander
-                with st.expander("تاریخچه گفتگو", expanded=True):
-                    chat_container = st.container()
-                    with chat_container:
-                        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-                        for msg in st.session_state.chat_history:
-                            if msg["role"] == "user":
-                                st.markdown(f'<div class="chat-message user-message">👤 {msg["content"]}</div>',
+                # نمایش تاریخچه گفتگو بدون استفاده از expander
+                st.subheader("تاریخچه گفتگو")
+                chat_container = st.container()
+                with chat_container:
+                    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+                    for msg in st.session_state.chat_history:
+                        if msg["role"] == "user":
+                            st.markdown(f'<div class="chat-message user-message">👤 {msg["content"]}</div>',
+                                        unsafe_allow_html=True)
+                        elif msg["role"] == "assistant":
+                            # بررسی اینکه پاسخ به صورت دیکشنری است یا متن ساده
+                            if isinstance(msg["content"], dict):
+                                answer = msg["content"].get("answer", "")
+                                sources = msg["content"].get("sources", [])
+
+                                # نمایش پاسخ اصلی
+                                st.markdown(f'<div class="chat-message assistant-message">🤖 {answer}</div>',
                                             unsafe_allow_html=True)
-                            elif msg["role"] == "assistant":
+
+                                # نمایش منابع به صورت کلپسیبل بدون استفاده از expander
+                                if sources:
+                                    # ایجاد یک مشخصه یکتا برای هر پیام
+                                    message_id = f"msg_{st.session_state.chat_history.index(msg)}"
+
+                                    # استفاده از دکمه برای نمایش/پنهان کردن منابع
+                                    if f"{message_id}_show_sources" not in st.session_state:
+                                        st.session_state[f"{message_id}_show_sources"] = False
+
+                                    if st.button(f"📚 نمایش منابع", key=f"btn_{message_id}"):
+                                        st.session_state[f"{message_id}_show_sources"] = not st.session_state[
+                                            f"{message_id}_show_sources"]
+
+                                    # نمایش منابع اگر دکمه فعال شده باشد
+                                    if st.session_state[f"{message_id}_show_sources"]:
+                                        with st.expander("📚 منابع استفاده شده"):
+                                            st.markdown("""
+                                               <style>
+                                                   .sources-container {
+                                                       font-size: 0.9em;
+                                                       direction: rtl;
+                                                       text-align: right;
+                                                   }
+                                                   .source-item {
+                                                       border-bottom: 1px solid #eee;
+                                                       padding-bottom: 10px;
+                                                       margin-bottom: 10px;
+                                                   }
+                                                   .source-item:last-child {
+                                                       border-bottom: none;
+                                                   }
+                                                   .source-title {
+                                                       font-weight: bold;
+                                                       font-size: 1em;
+                                                       margin-bottom: 5px;
+                                                   }
+                                                   .source-score, .source-path {
+                                                       font-size: 0.85em;
+                                                       color: #666;
+                                                       margin-bottom: 3px;
+                                                   }
+                                               </style>
+                                               <div class="sources-container">
+                                               """, unsafe_allow_html=True)
+                                            for i, source in enumerate(sources, 1):
+                                                title = source.get('title', 'بدون عنوان')
+                                                score = source.get('score', 0.0)
+                                                path = source.get('source', 'نامشخص')
+                                                st.markdown(f"""
+                                                            <div class="source-item">
+                                                                <div class="source-title">منبع {i}: {title}</div>
+                                                                <div class="source-score">امتیاز ارتباط: {score:.2f}</div>
+                                                                <div class="source-path">مسیر: {path}</div>
+                                                            </div>
+                                                            """, unsafe_allow_html=True)
+                                        st.markdown("</div>", unsafe_allow_html=True)
+                            else:
+                                # نمایش پاسخ به صورت متن ساده (برای سازگاری با پاسخ‌های قدیمی)
                                 st.markdown(f'<div class="chat-message assistant-message">🤖 {msg["content"]}</div>',
                                             unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 # فرم پرس‌وجو
                 with st.form(key="query_form", clear_on_submit=True):
                     query = st.text_area("پرسش خود را وارد کنید:", height=100, key="query_input")
                     col1, col2, col3 = st.columns([3, 1, 1])
                     with col1:
-                        top_k = st.slider("تعداد منابع برای بازیابی:", min_value=1, max_value=10, value=4)
+                        top_k = st.number_input("تعداد منابع برای بازیابی:",
+                                                min_value=1, max_value=10, value=4, step=1)
                     with col3:
                         submit_button = st.form_submit_button(label="ارسال", type="primary")
 
@@ -227,7 +334,7 @@ def main():
                 with col2:
                     if st.button("پاک کردن گفتگو", key="clear_chat"):
                         st.session_state.chat_history = []
-                        processor.clearChatHitsory()
+                        processor.clearChatHitsory()  # اصلاح نام متد
                         st.success("گفتگو پاک شد.")
                         st.rerun()
 
