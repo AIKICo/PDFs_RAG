@@ -4,6 +4,7 @@ import tempfile
 import pandas as pd
 import streamlit as st
 import torch
+from arabic_support import support_arabic_text
 
 from DocumentProcess.DocumentProcess import DocumentProcess
 
@@ -19,6 +20,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+# support_arabic_text(all=True)
 
 # استفاده از فونت Vazirmatn از لینک ایمن و اعمال آن به کل رابط کاربری
 st.markdown("""
@@ -35,6 +37,83 @@ st.markdown("""
     }
     * {
         font-family: 'Vazirmatn', sans-serif !important;
+    }
+        /* Sidebar specific RTL fixes */
+    .css-1d391kg, .css-1lcbmhc, .css-12oz5g7 {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* Fix for sidebar headers */
+    .sidebar .stHeadingContainer {
+        text-align: right;
+    }
+    
+    /* Fix for sidebar radio buttons */
+    .sidebar .stRadio > div {
+        direction: rtl;
+        text-align: right;
+    }
+    .sidebar .stRadio label {
+        text-align: right;
+        padding-right: 10px;
+        padding-left: 0;
+    }
+    
+    /* Fix for sidebar text inputs */
+    .sidebar .stTextInput > div {
+        direction: rtl;
+    }
+    .sidebar .stTextInput label {
+        text-align: right;
+        width: 100%;
+    }
+    
+    /* Fix for all sidebar widgets */
+    .sidebar [data-testid="stWidgetLabel"] {
+        direction: rtl;
+        text-align: right;
+        width: 100%;
+    }
+    
+    /* Fix for sidebar expanders */
+    .sidebar [data-testid="stExpander"] {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* This is a critical fix for sidebar buttons */
+    .sidebar .stButton > button {
+        float: right;
+    }
+    
+    /* Fix for sidebar metrics */
+    .sidebar .stMetric {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* Fix for sidebar numbers / sliders */
+    .sidebar [data-testid="stNumberInput"] label,
+    .sidebar [data-testid="stSlider"] label {
+        text-align: right;
+        width: 100%;
+    }
+    
+    /* Keep numbers left-to-right */
+    .sidebar [data-testid="stNumberInput"] div[aria-label="range"] {
+        direction: ltr;
+        text-align: left;
+    }
+    
+    /* Your existing styles */
+    .chat-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        background-color: #fafafa;
     }
     .chat-container {
         max-height: 400px;
@@ -105,6 +184,61 @@ st.markdown("""
         direction: rtl;
         text-align: right;
         padding: 10px 15px;
+    }
+    /* اضافه کردن این کدها به بخش CSS در st.markdown */
+
+    /* استایل‌های مربوط به expander در حالت RTL */
+    div[data-testid="stExpander"] {
+        direction: rtl;
+        text-align: right;
+        border: 1px solid #eaeaea;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    /* تنظیم جهت و حالت نمایش دکمه expander */
+    div[data-testid="stExpander"] > div[role="button"] {
+        display: flex;
+        flex-direction: row-reverse; /* تغییر جهت چیدمان به راست به چپ */
+        justify-content: space-between;
+        width: 100%;
+        text-align: right;
+        font-size: 0.95em;
+        font-weight: 500;
+        color: #333;
+        padding: 8px 12px;
+    }
+    
+    /* تنظیم آیکون expander */
+    div[data-testid="stExpander"] svg {
+        transform: scaleX(-1); /* معکوس کردن آیکون برای RTL */
+        margin-left: 0;
+        margin-right: auto; /* قرار دادن آیکون در سمت چپ */
+    }
+    
+    /* تنظیم محتوای داخل expander */
+    div[data-testid="stExpander"] > div[data-testid="stExpanderContent"] {
+        direction: rtl;
+        text-align: right;
+        padding: 10px 15px;
+    }
+    
+    /* اطمینان از اینکه متن عنوان expander در سمت راست قرار می‌گیرد */
+    div[data-testid="stExpander"] > div[role="button"] p {
+        margin-right: 0;
+        margin-left: auto;
+        text-align: right;
+    }
+    
+    /* اصلاح استایل برای sidebar expanders */
+    .sidebar div[data-testid="stExpander"] > div[role="button"] {
+        flex-direction: row-reverse;
+    }
+    
+    /* برای اطمینان از اینکه کلیک روی کل ناحیه عمل می‌کند */
+    div[data-testid="stExpander"] > div[role="button"] {
+        cursor: pointer;
     }
 </style>
 """, unsafe_allow_html=True)
