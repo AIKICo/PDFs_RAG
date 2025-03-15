@@ -3,7 +3,7 @@ import tempfile
 
 import streamlit as st
 import torch
-
+import pandas as pd
 from DocumentProcess.DocumentProcess import DocumentProcess
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -171,9 +171,10 @@ def main():
                 st.write(f"{len(files)} فایل در پایگاه داده موجود است.")
 
                 # تاریخچه گفتگو در یک expander
-                with st.expander("گفتگو", expanded=False):
+                with st.expander("تاریخچه گفتگو", expanded=True):
                     chat_container = st.container()
                     with chat_container:
+                        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
                         for msg in st.session_state.chat_history:
                             if msg["role"] == "user":
                                 st.markdown(f'<div class="chat-message user-message">👤 {msg["content"]}</div>',
@@ -181,6 +182,7 @@ def main():
                             elif msg["role"] == "assistant":
                                 st.markdown(f'<div class="chat-message assistant-message">🤖 {msg["content"]}</div>',
                                             unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
 
                 # فرم پرس‌وجو
                 with st.form(key="query_form", clear_on_submit=True):
@@ -191,36 +193,43 @@ def main():
                     with col3:
                         submit_button = st.form_submit_button(label="ارسال", type="primary")
 
+                # پردازش پرسش
                 if submit_button and query:
+                    # افزودن پرسش به تاریخچه
                     st.session_state.chat_history.append({"role": "user", "content": query})
 
-                    progress_placeholder = st.empty()
-                    progress_bar = st.progress(0)
+                    # ایجاد نشانگر پیشرفت
+                    progress_container = st.container()
+                    with progress_container:
+                        progress_text = st.empty()
+                        progress_bar = st.progress(0)
 
-                    def update_query_progress(progress, message):
-                        progress_bar.progress(progress)
-                        progress_placeholder.text(message)
+                        def update_query_progress(progress, message):
+                            progress_bar.progress(progress)
+                            progress_text.text(message)
 
-                    with st.spinner("در حال پردازش..."):
-                        response = processor.query(query, top_k, update_query_progress)
+                        # پردازش پرسش
+                        with st.spinner("در حال پردازش..."):
+                            response = processor.query(query, top_k, update_query_progress)
 
-                    st.session_state.chat_history.append({"role": "assistant", "content": response})
-                    st.subheader("پاسخ:")
-                    st.markdown(f'<div class="chat-message assistant-message">🤖 {response}</div>',
-                                unsafe_allow_html=True)
+                        # افزودن پاسخ به تاریخچه
+                        st.session_state.chat_history.append({"role": "assistant", "content": response})
 
-                    progress_bar.empty()
-                    progress_placeholder.empty()
+                        # پاک کردن نشانگر پیشرفت
+                        progress_bar.empty()
+                        progress_text.empty()
 
-
-                    # st.rerun()
+                        # به‌روزرسانی صفحه
+                        st.rerun()
 
                 # دکمه پاک کردن گفتگو
-                if st.button("پاک کردن گفتگو", key="clear_chat"):
-                    st.session_state.chat_history = []
-                    processor.clearChatHitsory()
-                    st.success("گفتگو پاک شد.")
-                    st.rerun()
+                col1, col2 = st.columns([4, 1])
+                with col2:
+                    if st.button("پاک کردن گفتگو", key="clear_chat"):
+                        st.session_state.chat_history = []
+                        processor.clearChatHitsory()
+                        st.success("گفتگو پاک شد.")
+                        st.rerun()
 
         elif page == "فایل‌های پردازش شده":
             st.title("فایل‌های پردازش شده")
@@ -241,6 +250,7 @@ def main():
                         st.rerun()
 
                 data = []
+                # اضافه کردن ستونی برای عملیات حذف
                 for i, file in enumerate(files, 1):
                     file_type = file.get("file_type", "نامشخص")
                     icon = get_file_icon(file_type)
@@ -249,16 +259,47 @@ def main():
                     file_size = metadata.get("file_size_mb", "")
                     size_display = f"{file_size} MB" if file_size else ""
 
+                    # محاسبه file_hash برای حذف
+                    file_path = file.get("file_path", "")
+                    file_hash = processor._calculate_file_hash(file_path) if file_path and os.path.exists(
+                        file_path) else ""
+
                     data.append({
                         "شماره": i,
                         "نوع": f"{icon} {file_type}",
                         "نام فایل": file["file_name"],
                         "اندازه": size_display,
                         "تعداد صفحات": file["page_count"],
-                        "تاریخ پردازش": file["processed_at"]
+                        "تاریخ پردازش": file["processed_at"],
+                        "عملیات": file_hash  # ذخیره هش فایل برای استفاده در حذف
                     })
 
-                st.table(data)
+                # نمایش جدول با دکمه‌های حذف
+                df = pd.DataFrame(data)
+                for i, row in df.iterrows():
+                    col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 1, 2, 1, 1, 2, 1])
+                    with col1:
+                        st.write(row["شماره"])
+                    with col2:
+                        st.write(row["نوع"])
+                    with col3:
+                        st.write(row["نام فایل"])
+                    with col4:
+                        st.write(row["اندازه"])
+                    with col5:
+                        st.write(row["تعداد صفحات"])
+                    with col6:
+                        st.write(row["تاریخ پردازش"])
+                    with col7:
+                        if st.button("🗑️ حذف", key=f"delete_{row['عملیات']}"):
+                            if processor.remove_document(row["عملیات"]):
+                                st.success(f"فایل «{row['نام فایل']}» با موفقیت حذف شد.")
+                                st.session_state.refresh_files = True
+                                st.rerun()
+                            else:
+                                st.error(f"خطا در حذف فایل «{row['نام فایل']}»")
+
+                # st.table(data)
 
     finally:
         processor.close()

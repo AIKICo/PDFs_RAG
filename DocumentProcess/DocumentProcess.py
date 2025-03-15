@@ -49,12 +49,11 @@ class DocumentProcess:
             embedding_function=self.hf_embeddings
         )
 
-        # الگوی پیام چت
         self.prompt = ChatPromptTemplate.from_messages([
             ("system",
              "شما یک دستیار هوش مصنوعی هستید که بر اساس اطلاعات زمینه و تاریخچه گفتگو پاسخ می‌دهید. "
              "در پاسخ‌های خود دقت کنید و فقط بر اساس داده‌های ارائه‌شده نتیجه‌گیری کنید. "
-             "اگر اطلاعات کافی ندارید، بگویید که نمی‌توانید پاسخ دهید.",
+             "اگر اطلاعات کافی ندارید، بگویید که نمی‌توانید پاسخ دهید. "
              "پاسخ ها به فارسی باشد و اگر پاسخ تو انگلیسی بود ابتدا ترجمه شود و این ترجمه شامل پاسخ های مرتبط با کدنویس نباشد"),
             MessagesPlaceholder(variable_name="history"),
             ("human", "متن زمینه:\n{context}\n\nپرسش:\n{question}\n\nپاسخ خود را ارائه دهید.")
@@ -241,6 +240,15 @@ class DocumentProcess:
             if not result:
                 return False
 
+            file_path = result[0]
+
+            # حذف اسناد مرتبط از پایگاه داده برداری
+            # جستجو و حذف تمام قطعه‌های مرتبط با این فایل در Chroma
+            self.vector_store.delete(
+                where={"source": file_path}
+            )
+
+            # حذف از پایگاه داده SQLite
             cursor.execute("DELETE FROM processed_files WHERE file_hash = ?", (file_hash,))
             self.db_conn.commit()
 
