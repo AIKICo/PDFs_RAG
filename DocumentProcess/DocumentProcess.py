@@ -257,12 +257,13 @@ class DocumentProcess:
         try:
             if progress_callback:
                 progress_callback(0.2, "در حال جستجوی اطلاعات مرتبط...")
+
             # بازیابی اسناد مرتبط با تعداد بیشتر برای امتیازدهی مجدد
             retriever = self.vector_store.as_retriever(
                 search_type="mmr",
                 search_kwargs={
-                    "k": top_k * 2,  # بازیابی تعداد بیشتری برای انتخاب بهتر
-                    "fetch_k": top_k * 3,  # تعداد بیشتری برای محاسبه MMR
+                    "k": top_k * 3,  # بازیابی تعداد بیشتری برای انتخاب بهتر
+                    "fetch_k": top_k * 4,  # تعداد بیشتری برای محاسبه MMR
                     "lambda_mult": 0.7  # تأکید بیشتر بر ارتباط نسبت به تنوع
                 }
             )
@@ -273,12 +274,8 @@ class DocumentProcess:
                 return "اطلاعات مرتبطی با پرسش شما یافت نشد."
 
             # اطمینان از اینکه امتیاز اولیه در متادیتا ذخیره شده است
-            # در این مرحله ممکن است امتیاز اولیه در متادیتا وجود داشته باشد یا نه
-            # برای اطمینان، یک مقدار پیش‌فرض اضافه می‌کنیم اگر وجود نداشت
             for i, doc in enumerate(initial_docs):
                 if 'score' not in doc.metadata:
-                    # اگر امتیازی وجود ندارد، یک امتیاز بر اساس ترتیب دریافت اختصاص می‌دهیم
-                    # (دقیق نیست اما بهتر از صفر است)
                     doc.metadata['score'] = 1.0 - (i * 0.1)
 
             if progress_callback:
@@ -287,18 +284,39 @@ class DocumentProcess:
             # امتیازدهی مجدد به اسناد برای تعیین اهمیت آنها
             reranked_docs = self._rerank_documents(question, initial_docs)
 
-            # انتخاب بهترین اسناد
-            top_docs = reranked_docs[:top_k]
+            # ----- تغییر اصلی: گروه‌بندی اسناد بر اساس فایل منبع آنها -----
+            # گروه‌بندی اسناد بر اساس فایل منبع
+            files_docs = {}
+            for doc in reranked_docs:
+                file_path = doc.metadata.get('source', 'unknown')
+                if file_path not in files_docs:
+                    files_docs[file_path] = []
+                files_docs[file_path].append(doc)
+
+            # محاسبه میانگین امتیاز برای هر فایل
+            file_scores = {}
+            for file_path, docs in files_docs.items():
+                if docs:
+                    avg_score = sum(doc.metadata.get('rerank_score', 0) for doc in docs) / len(docs)
+                    file_scores[file_path] = (avg_score, len(docs))
+
+            # انتخاب بهترین فایل بر اساس امتیاز میانگین و تعداد قطعات
+            best_file = max(file_scores.items(), key=lambda x: (x[1][0], x[1][1]))[0] if file_scores else None
+
+            if not best_file:
+                return "اطلاعات مرتبطی با پرسش شما یافت نشد."
+
+            # انتخاب بهترین قطعات فقط از فایل انتخاب شده
+            top_docs = files_docs[best_file]
+            # محدود کردن به top_k قطعه برتر
+            top_docs = top_docs[:top_k]
 
             if progress_callback:
                 progress_callback(0.5, "در حال آماده‌سازی متن زمینه...")
 
-            # خلاصه‌سازی اسناد طولانی (اختیاری)
-            # processed_docs = self._summarize_long_documents(top_docs)
-            processed_docs = top_docs  # برای سادگی، این مرحله را فعلاً نادیده می‌گیریم
-
             # ترکیب متن‌ها با وزن‌دهی و نشان‌گذاری اهمیت آنها
-            context = self._weighted_context_merge(processed_docs)
+            context = self._weighted_context_merge(top_docs)
+
             if progress_callback:
                 progress_callback(0.7, "در حال تولید پاسخ...")
             # تنظیم مدل ChatOllama
@@ -325,12 +343,13 @@ class DocumentProcess:
             if progress_callback:
                 progress_callback(0.9, "در حال تهیه منابع...")
 
+            # افزودن اطلاعات فایل منبع به پاسخ
+            file_name = os.path.basename(best_file)
             sources = []
             for doc in top_docs:
-                # استفاده از rerank_score به جای score برای نمایش امتیاز ارتباط
                 source_info = {
                     "title": doc.metadata.get("title", "بدون عنوان"),
-                    "score": round(doc.metadata.get("rerank_score", 0.0), 2),  # استفاده از rerank_score با دو رقم اعشار
+                    "score": round(doc.metadata.get("rerank_score", 0.0), 2),
                     "source": doc.metadata.get("source", "نامشخص")
                 }
                 sources.append(source_info)
@@ -338,6 +357,7 @@ class DocumentProcess:
             # افزودن منابع به پاسخ
             final_answer = {
                 "answer": answer,
+                "file": file_name,  # افزودن نام فایل منبع به پاسخ
                 "sources": sources
             }
 
