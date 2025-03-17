@@ -21,7 +21,7 @@ MEMORY_FILE_PATH = "memory.json"
 
 class DocumentProcess:
     def __init__(self, model_name: str = "gemma3",
-                 embeddings_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
+                 embeddings_model: str = "intfloat/multilingual-e5-large"):
         self.model_name = model_name
         self.embeddings_model = embeddings_model
         self.db_conn = self._init_database()
@@ -31,8 +31,9 @@ class DocumentProcess:
 
         # تنظیمات تعبیه‌ها
         self.hf_embeddings = HuggingFaceEmbeddings(
-            model_name=embeddings_model,
+            model_name="intfloat/multilingual-e5-large",
             model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True},
             cache_folder="./hf_cache"
         )
 
@@ -57,7 +58,7 @@ class DocumentProcess:
              "در پاسخ‌های خود بر محتوای متن‌های با اهمیت بیشتر تمرکز کنید. "
              "اگر اطلاعات کافی ندارید، بگویید که نمی‌توانید پاسخ دهید. "
              "پاسخ‌ها به فارسی باشد و بدون غلط املایی تولید شوند."
-             "پاسخ ها به فارسی باشد و اگر پاسخ تو انگلیسی بود ابتدا ترجمه شود و این ترجمه شامل پاسخ های مرتبط با کدنویسی نباشد"),
+             "اگر پاسخ تو انگلیسی بود ابتدا ترجمه شود و این ترجمه شامل پاسخ های مرتبط با کدنویسی نباشد."),
             MessagesPlaceholder(variable_name="history"),
             ("human", "متن زمینه:\n{context}\n\nپرسش:\n{question}\n\nپاسخ خود را ارائه دهید.")
         ])

@@ -273,7 +273,7 @@ def main():
     st.sidebar.subheader("تنظیمات مدل")
     model_name = st.sidebar.text_input("مدل LLM (gemma3)", value="gemma3")
     embeddings_model = st.sidebar.text_input("مدل Embeddings",
-                                             value="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+                                             value="intfloat/multilingual-e5-large")
 
     processor = DocumentProcess(model_name=model_name, embeddings_model=embeddings_model)
 
