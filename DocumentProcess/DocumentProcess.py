@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from langchain_chroma import Chroma
 from langchain_community.chat_message_histories import FileChatMessageHistory
@@ -56,6 +56,7 @@ class DocumentProcess:
              "هر قطعه متن با علامت‌های # نشان‌گذاری شده است. تعداد بیشتر # نشانه اهمیت بیشتر آن قطعه است. "
              "در پاسخ‌های خود بر محتوای متن‌های با اهمیت بیشتر تمرکز کنید. "
              "اگر اطلاعات کافی ندارید، بگویید که نمی‌توانید پاسخ دهید. "
+             "پاسخ‌ها به فارسی باشد و بدون غلط املایی تولید شوند."
              "پاسخ ها به فارسی باشد و اگر پاسخ تو انگلیسی بود ابتدا ترجمه شود و این ترجمه شامل پاسخ های مرتبط با کدنویسی نباشد"),
             MessagesPlaceholder(variable_name="history"),
             ("human", "متن زمینه:\n{context}\n\nپرسش:\n{question}\n\nپاسخ خود را ارائه دهید.")
@@ -252,28 +253,21 @@ class DocumentProcess:
 
         return "\n\n".join(context_parts)
 
-    def query(self, question: str, top_k: int = 4, progress_callback=None) -> str | dict[
-        str, list[dict[str, Any]] | Any]:
+    def query(self, question: str, top_k: int = 4, progress_callback=None):
         try:
             if progress_callback:
                 progress_callback(0.2, "در حال جستجوی اطلاعات مرتبط...")
 
-            # بازیابی اسناد مرتبط با تعداد بیشتر برای امتیازدهی مجدد
             retriever = self.vector_store.as_retriever(
                 search_type="mmr",
-                search_kwargs={
-                    "k": top_k * 3,  # بازیابی تعداد بیشتری برای انتخاب بهتر
-                    "fetch_k": top_k * 4,  # تعداد بیشتری برای محاسبه MMR
-                    "lambda_mult": 0.7  # تأکید بیشتر بر ارتباط نسبت به تنوع
-                }
+                search_kwargs={"k": top_k * 3, "fetch_k": top_k * 4, "lambda_mult": 0.7}
             )
 
-            # بازیابی اسناد و ذخیره امتیازها
             initial_docs = retriever.invoke(question)
             if not initial_docs:
-                return "اطلاعات مرتبطی با پرسش شما یافت نشد."
+                yield {"answer": "اطلاعات مرتبطی با پرسش شما یافت نشد.", "file": "", "sources": []}
+                return
 
-            # اطمینان از اینکه امتیاز اولیه در متادیتا ذخیره شده است
             for i, doc in enumerate(initial_docs):
                 if 'score' not in doc.metadata:
                     doc.metadata['score'] = 1.0 - (i * 0.1)
@@ -281,11 +275,8 @@ class DocumentProcess:
             if progress_callback:
                 progress_callback(0.4, "در حال امتیازدهی به اسناد بازیابی شده...")
 
-            # امتیازدهی مجدد به اسناد برای تعیین اهمیت آنها
             reranked_docs = self._rerank_documents(question, initial_docs)
 
-            # ----- تغییر اصلی: گروه‌بندی اسناد بر اساس فایل منبع آنها -----
-            # گروه‌بندی اسناد بر اساس فایل منبع
             files_docs = {}
             for doc in reranked_docs:
                 file_path = doc.metadata.get('source', 'unknown')
@@ -293,39 +284,33 @@ class DocumentProcess:
                     files_docs[file_path] = []
                 files_docs[file_path].append(doc)
 
-            # محاسبه میانگین امتیاز برای هر فایل
             file_scores = {}
             for file_path, docs in files_docs.items():
                 if docs:
                     avg_score = sum(doc.metadata.get('rerank_score', 0) for doc in docs) / len(docs)
                     file_scores[file_path] = (avg_score, len(docs))
 
-            # انتخاب بهترین فایل بر اساس امتیاز میانگین و تعداد قطعات
             best_file = max(file_scores.items(), key=lambda x: (x[1][0], x[1][1]))[0] if file_scores else None
-
             if not best_file:
-                return "اطلاعات مرتبطی با پرسش شما یافت نشد."
+                yield {"answer": "اطلاعات مرتبطی با پرسش شما یافت نشد.", "file": "", "sources": []}
+                return
 
-            # انتخاب بهترین قطعات فقط از فایل انتخاب شده
-            top_docs = files_docs[best_file]
-            # محدود کردن به top_k قطعه برتر
-            top_docs = top_docs[:top_k]
+            top_docs = files_docs[best_file][:top_k]
 
             if progress_callback:
                 progress_callback(0.5, "در حال آماده‌سازی متن زمینه...")
 
-            # ترکیب متن‌ها با وزن‌دهی و نشان‌گذاری اهمیت آنها
             context = self._weighted_context_merge(top_docs)
 
             if progress_callback:
                 progress_callback(0.7, "در حال تولید پاسخ...")
-            # تنظیم مدل ChatOllama
+
             llm = ChatOllama(
                 model=self.model_name,
                 base_url="http://localhost:11434",
-                temperature=0.7
+                temperature=0.3
             )
-            # ایجاد chain با حافظه
+
             chain = self.prompt | llm
             chain_with_history = RunnableWithMessageHistory(
                 chain,
@@ -333,42 +318,38 @@ class DocumentProcess:
                 input_messages_key="question",
                 history_messages_key="history",
             )
-            # تولید پاسخ با استفاده از زنجیره با حافظه
-            answer = chain_with_history.invoke(
-                {"context": context, "question": question},
-                config={"configurable": {"session_id": "default"}}
-            ).content
 
-            # تهیه منابع با نمایش امتیاز ارتباط
-            if progress_callback:
-                progress_callback(0.9, "در حال تهیه منابع...")
+            # تولید پاسخ به‌صورت استریم
+            full_answer = ""
+            for chunk in chain_with_history.stream(
+                    {"context": context, "question": question},
+                    config={"configurable": {"session_id": "default"}}
+            ):
+                full_answer += chunk.content
+                yield {"answer": full_answer, "file": best_file, "sources": []}  # ارسال پاسخ تدریجی
 
-            # افزودن اطلاعات فایل منبع به پاسخ
+            # ارسال منابع پس از اتمام استریم
             file_name = os.path.basename(best_file)
-            sources = []
-            for doc in top_docs:
-                source_info = {
+            sources = [
+                {
                     "title": doc.metadata.get("title", "بدون عنوان"),
                     "score": round(doc.metadata.get("rerank_score", 0.0), 2),
                     "source": doc.metadata.get("source", "نامشخص")
                 }
-                sources.append(source_info)
-
-            # افزودن منابع به پاسخ
-            final_answer = {
-                "answer": answer,
-                "file": file_name,  # افزودن نام فایل منبع به پاسخ
-                "sources": sources
-            }
+                for doc in top_docs
+            ]
+            yield {"answer": full_answer, "file": file_name, "sources": sources}
 
             if progress_callback:
                 progress_callback(1.0, "پاسخ آماده است.")
 
-            return final_answer
-
         except Exception as e:
             print(f"خطا در فرآیند پرسش و پاسخ: {str(e)}")
-            return "متأسفانه خطایی در پردازش پرسش شما رخ داد. لطفاً دوباره تلاش کنید."
+            yield {
+                "answer": "متأسفانه خطایی در پردازش پرسش شما رخ داد. لطفاً دوباره تلاش کنید.",
+                "file": "",
+                "sources": []
+            }
 
     def list_processed_files(self) -> List[Dict]:
         cursor = self.db_conn.cursor()

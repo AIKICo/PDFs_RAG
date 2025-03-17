@@ -4,7 +4,6 @@ import tempfile
 import pandas as pd
 import streamlit as st
 import torch
-from arabic_support import support_arabic_text
 
 from DocumentProcess.DocumentProcess import DocumentProcess
 
@@ -343,7 +342,6 @@ def main():
             else:
                 st.write(f"{len(files)} فایل در پایگاه داده موجود است.")
 
-                # نمایش تاریخچه گفتگو بدون استفاده از expander
                 st.subheader("تاریخچه گفتگو")
                 chat_container = st.container()
                 with chat_container:
@@ -353,93 +351,55 @@ def main():
                             st.markdown(f'<div class="chat-message user-message">👤 {msg["content"]}</div>',
                                         unsafe_allow_html=True)
                         elif msg["role"] == "assistant":
-                            # بررسی اینکه پاسخ به صورت دیکشنری است یا متن ساده
                             if isinstance(msg["content"], dict):
                                 answer = msg["content"].get("answer", "")
                                 sources = msg["content"].get("sources", [])
-
-                                # نمایش پاسخ اصلی
                                 st.markdown(f'<div class="chat-message assistant-message">🤖 {answer}</div>',
                                             unsafe_allow_html=True)
-
-                                # نمایش منابع به صورت کلپسیبل بدون استفاده از expander
                                 if sources:
-                                    # ایجاد یک مشخصه یکتا برای هر پیام
                                     message_id = f"msg_{st.session_state.chat_history.index(msg)}"
-
-                                    # استفاده از دکمه برای نمایش/پنهان کردن منابع
                                     if f"{message_id}_show_sources" not in st.session_state:
                                         st.session_state[f"{message_id}_show_sources"] = False
-
                                     if st.button(f"📚 نمایش منابع", key=f"btn_{message_id}"):
                                         st.session_state[f"{message_id}_show_sources"] = not st.session_state[
                                             f"{message_id}_show_sources"]
-
-                                    # نمایش منابع اگر دکمه فعال شده باشد
                                     if st.session_state[f"{message_id}_show_sources"]:
                                         with st.expander("📚 منابع استفاده شده"):
                                             st.markdown("""
-                                               <style>
-                                                   .sources-container {
-                                                       font-size: 0.9em;
-                                                       direction: rtl;
-                                                       text-align: right;
-                                                   }
-                                                   .source-item {
-                                                       border-bottom: 1px solid #eee;
-                                                       padding-bottom: 10px;
-                                                       margin-bottom: 10px;
-                                                   }
-                                                   .source-item:last-child {
-                                                       border-bottom: none;
-                                                   }
-                                                   .source-title {
-                                                       font-weight: bold;
-                                                       font-size: 1em;
-                                                       margin-bottom: 5px;
-                                                   }
-                                                   .source-score, .source-path {
-                                                       font-size: 0.85em;
-                                                       color: #666;
-                                                       margin-bottom: 3px;
-                                                   }
-                                               </style>
-                                               <div class="sources-container">
-                                               """, unsafe_allow_html=True)
+                                                    <style>
+                                                        .sources-container { font-size: 0.9em; direction: rtl; text-align: right; }
+                                                        .source-item { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+                                                        .source-item:last-child { border-bottom: none; }
+                                                        .source-title { font-weight: bold; font-size: 1em; margin-bottom: 5px; }
+                                                        .source-score, .source-path { font-size: 0.85em; color: #666; margin-bottom: 3px; }
+                                                    </style>
+                                                    <div class="sources-container">
+                                                    """, unsafe_allow_html=True)
                                             for i, source in enumerate(sources, 1):
-                                                title = source.get('title', 'بدون عنوان')
-                                                score = source.get('score', 0.0)
-                                                path = source.get('source', 'نامشخص')
                                                 st.markdown(f"""
-                                                            <div class="source-item">
-                                                                <div class="source-title">منبع {i}: {title}</div>
-                                                                <div class="source-score">امتیاز ارتباط: {score:.2f}</div>
-                                                                <div class="source-path">مسیر: {path}</div>
-                                                            </div>
-                                                            """, unsafe_allow_html=True)
-                                        st.markdown("</div>", unsafe_allow_html=True)
+                                                        <div class="source-item">
+                                                            <div class="source-title">منبع {i}: {source.get('title', 'بدون عنوان')}</div>
+                                                            <div class="source-score">امتیاز ارتباط: {source.get('score', 0.0):.2f}</div>
+                                                            <div class="source-path">مسیر: {source.get('source', 'نامشخص')}</div>
+                                                        </div>
+                                                    """, unsafe_allow_html=True)
+                                            st.markdown("</div>", unsafe_allow_html=True)
                             else:
-                                # نمایش پاسخ به صورت متن ساده (برای سازگاری با پاسخ‌های قدیمی)
                                 st.markdown(f'<div class="chat-message assistant-message">🤖 {msg["content"]}</div>',
                                             unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                # فرم پرس‌وجو
                 with st.form(key="query_form", clear_on_submit=True):
                     query = st.text_area("پرسش خود را وارد کنید:", height=100, key="query_input")
                     col1, col2, col3 = st.columns([3, 1, 1])
                     with col1:
-                        top_k = st.number_input("تعداد منابع برای بازیابی:",
-                                                min_value=1, max_value=10, value=4, step=1)
+                        top_k = st.number_input("تعداد منابع برای بازیابی:", min_value=1, max_value=10, value=4, step=1)
                     with col3:
                         submit_button = st.form_submit_button(label="ارسال", type="primary")
 
-                # پردازش پرسش
                 if submit_button and query:
-                    # افزودن پرسش به تاریخچه
                     st.session_state.chat_history.append({"role": "user", "content": query})
 
-                    # ایجاد نشانگر پیشرفت
                     progress_container = st.container()
                     with progress_container:
                         progress_text = st.empty()
@@ -449,26 +409,30 @@ def main():
                             progress_bar.progress(progress)
                             progress_text.text(message)
 
-                        # پردازش پرسش
+                        # نمایش استریم با st.write_stream
                         with st.spinner("در حال پردازش..."):
-                            response = processor.query(query, top_k, update_query_progress)
+                            response_content = {"answer": "", "file": "", "sources": []}
+                            response_placeholder = st.empty()
 
-                        # افزودن پاسخ به تاریخچه
-                        st.session_state.chat_history.append({"role": "assistant", "content": response})
+                            # دریافت آخرین مقدار از استریم
+                            for chunk in processor.query(query, top_k, update_query_progress):
+                                response_content = chunk  # آخرین مقدار را ذخیره می‌کنیم
+                                response_placeholder.markdown(
+                                    f'<div class="chat-message assistant-message">🤖 {chunk["answer"]}</div>',
+                                    unsafe_allow_html=True
+                                )
 
-                        # پاک کردن نشانگر پیشرفت
+                            st.session_state.chat_history.append({"role": "assistant", "content": response_content})
+
                         progress_bar.empty()
                         progress_text.empty()
-
-                        # به‌روزرسانی صفحه
                         st.rerun()
 
-                # دکمه پاک کردن گفتگو
                 col1, col2 = st.columns([4, 1])
                 with col2:
                     if st.button("پاک کردن گفتگو", key="clear_chat"):
                         st.session_state.chat_history = []
-                        processor.clearChatHitsory()  # اصلاح نام متد
+                        processor.clearChatHitsory()
                         st.success("گفتگو پاک شد.")
                         st.rerun()
 
