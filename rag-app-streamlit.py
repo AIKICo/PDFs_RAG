@@ -343,51 +343,55 @@ def main():
                 st.write(f"{len(files)} فایل در پایگاه داده موجود است.")
 
                 st.subheader("تاریخچه گفتگو")
-                chat_container = st.container()
-                with chat_container:
-                    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-                    for msg in st.session_state.chat_history:
-                        if msg["role"] == "user":
-                            st.markdown(f'<div class="chat-message user-message">👤 {msg["content"]}</div>',
-                                        unsafe_allow_html=True)
-                        elif msg["role"] == "assistant":
-                            if isinstance(msg["content"], dict):
-                                answer = msg["content"].get("answer", "")
-                                sources = msg["content"].get("sources", [])
-                                st.markdown(f'<div class="chat-message assistant-message">🤖 {answer}</div>',
+
+                with st.expander("📜 تاریخچه گفتگو", expanded=False):
+                    chat_container = st.container()
+                    with chat_container:
+                        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+                        for idx, msg in enumerate(st.session_state.chat_history):
+                            if msg["role"] == "user":
+                                st.markdown(f'<div class="chat-message user-message">👤 {msg["content"]}</div>',
                                             unsafe_allow_html=True)
-                                if sources:
-                                    message_id = f"msg_{st.session_state.chat_history.index(msg)}"
-                                    if f"{message_id}_show_sources" not in st.session_state:
-                                        st.session_state[f"{message_id}_show_sources"] = False
-                                    if st.button(f"📚 نمایش منابع", key=f"btn_{message_id}"):
-                                        st.session_state[f"{message_id}_show_sources"] = not st.session_state[
-                                            f"{message_id}_show_sources"]
-                                    if st.session_state[f"{message_id}_show_sources"]:
-                                        with st.expander("📚 منابع استفاده شده"):
+                            elif msg["role"] == "assistant":
+                                if isinstance(msg["content"], dict):
+                                    answer = msg["content"].get("answer", "")
+                                    sources = msg["content"].get("sources", [])
+                                    st.markdown(f'<div class="chat-message assistant-message">🤖 {answer}</div>',
+                                                unsafe_allow_html=True)
+
+                                    # دکمه‌ی نمایش منابع (به جای expander)
+                                    message_id = f"msg_{idx}"
+                                    if sources:
+                                        if f"{message_id}_show_sources" not in st.session_state:
+                                            st.session_state[f"{message_id}_show_sources"] = False
+                                        if st.button(f"📚 نمایش منابع پیام {idx + 1}", key=f"btn_{message_id}"):
+                                            st.session_state[f"{message_id}_show_sources"] = not st.session_state[
+                                                f"{message_id}_show_sources"]
+
+                                        if st.session_state[f"{message_id}_show_sources"]:
                                             st.markdown("""
-                                                    <style>
-                                                        .sources-container { font-size: 0.9em; direction: rtl; text-align: right; }
-                                                        .source-item { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-                                                        .source-item:last-child { border-bottom: none; }
-                                                        .source-title { font-weight: bold; font-size: 1em; margin-bottom: 5px; }
-                                                        .source-score, .source-path { font-size: 0.85em; color: #666; margin-bottom: 3px; }
-                                                    </style>
-                                                    <div class="sources-container">
-                                                    """, unsafe_allow_html=True)
+                                                <style>
+                                                    .sources-container { font-size: 0.9em; direction: rtl; text-align: right; }
+                                                    .source-item { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+                                                    .source-item:last-child { border-bottom: none; }
+                                                    .source-title { font-weight: bold; font-size: 1em; margin-bottom: 5px; }
+                                                    .source-score, .source-path { font-size: 0.85em; color: #666; margin-bottom: 3px; }
+                                                </style>
+                                                <div class="sources-container">
+                                            """, unsafe_allow_html=True)
                                             for i, source in enumerate(sources, 1):
                                                 st.markdown(f"""
-                                                        <div class="source-item">
-                                                            <div class="source-title">منبع {i}: {source.get('title', 'بدون عنوان')}</div>
-                                                            <div class="source-score">امتیاز ارتباط: {source.get('score', 0.0):.2f}</div>
-                                                            <div class="source-path">مسیر: {source.get('source', 'نامشخص')}</div>
-                                                        </div>
-                                                    """, unsafe_allow_html=True)
+                                                    <div class="source-item">
+                                                        <div class="source-title">منبع {i}: {source.get('title', 'بدون عنوان')}</div>
+                                                        <div class="source-score">امتیاز ارتباط: {source.get('score', 0.0):.2f}</div>
+                                                        <div class="source-path">مسیر: {source.get('source', 'نامشخص')}</div>
+                                                    </div>
+                                                """, unsafe_allow_html=True)
                                             st.markdown("</div>", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f'<div class="chat-message assistant-message">🤖 {msg["content"]}</div>',
-                                            unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f'<div class="chat-message assistant-message">🤖 {msg["content"]}</div>',
+                                                unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
 
                 with st.form(key="query_form", clear_on_submit=True):
                     query = st.text_area("پرسش خود را وارد کنید:", height=100, key="query_input")
